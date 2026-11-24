@@ -14,6 +14,10 @@ env:
   GOPROXY: https://proxy.golang.org,direct
   GOSUMDB: sum.golang.org
   PYTHONUTF8: '1'
+  # GitHub's windows-latest now ships Visual Studio 2026, whose STL turns the
+  # <experimental/coroutine> deprecation (used by flutter_inappwebview_windows)
+  # into a hard error (STL1011). Silence it for all cl.exe invocations.
+  CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
 
 jobs:
   windows:
