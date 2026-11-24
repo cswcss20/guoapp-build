@@ -13,6 +13,7 @@ import '../../source_modules.dart';
 import '../app_scope.dart';
 import '../settings/settings_rows.dart';
 import 'module_install.dart';
+import '../../zh_script.dart';
 import '../settings/emby_account_view.dart';
 import '../settings/sorani_account_view.dart';
 import 'browser_auth_view.dart';
@@ -758,7 +759,7 @@ class _ModuleCard extends StatelessWidget {
       children: [
         DefaultTextStyle.merge(
           style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),
-          child: _ModuleTitle(name, adult: adult),
+          child: _ModuleTitle(zh(name), adult: adult),
         ),
         const SizedBox(height: 2),
         Text('版本：${version.isEmpty ? '未标注' : version}', style: meta),
@@ -881,7 +882,7 @@ class _InstalledCard extends StatelessWidget {
         if (module.error.isNotEmpty)
           Text(module.error, style: TextStyle(color: colors.error))
         else ...[
-          if (module.description.isNotEmpty) Text(module.description),
+          if (module.description.isNotEmpty) Text(zh(module.description)),
           if (update case final update?)
             Text(
               '可更新到 ${update.version}',
@@ -965,7 +966,7 @@ class _IndexCard extends StatelessWidget {
       version: entry.version,
       id: entry.id,
       body: [
-        if (entry.description.isNotEmpty) Text(entry.description),
+        if (entry.description.isNotEmpty) Text(zh(entry.description)),
         if (records != null)
           Text('待恢复：$records', style: TextStyle(color: colors.primary)),
       ],
@@ -1086,8 +1087,8 @@ class _ModuleDetails extends StatelessWidget {
           ...notes,
           if (module.description.isNotEmpty)
             television
-                ? _FoldedText(module.description, maxLines: 3)
-                : Text(module.description),
+                ? _FoldedText(zh(module.description), maxLines: 3)
+                : Text(zh(module.description)),
           if (television)
             Padding(
               padding: const EdgeInsets.only(top: 12),
@@ -1296,7 +1297,7 @@ class _ModuleMenu extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final toggle = onToggle;
     return AlertDialog(
-      title: Text(module.name),
+      title: Text(zh(module.name)),
       content: _ModuleDetails(
         module: module,
         install: false,

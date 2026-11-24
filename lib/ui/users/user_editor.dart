@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../local_profiles.dart';
+import '../../zh_script.dart';
 import '../../local_store.dart';
 import '../../models.dart';
 import '../app_scope.dart';
@@ -284,7 +285,7 @@ class _UserEditorState extends State<UserEditor> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              '管理员可以访问全部站源和功能。存在其他用户时不能取消管理员密码。',
+              zh('管理员可以访问全部站源和功能。存在其他用户时不能取消管理员密码。'),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colors.onSurfaceVariant,
                 height: 1.6,

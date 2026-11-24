@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../local_profiles.dart';
+import '../../zh_script.dart';
 import '../../local_store.dart';
 import '../../models.dart';
 import '../settings/settings_rows.dart';
@@ -198,7 +199,7 @@ class ProfileTile extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                profile.name,
+                zh(profile.name),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -214,7 +215,7 @@ class ProfileTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Text(
-                  '当前',
+                  zh('当前'),
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: colors.onSecondaryContainer,
                   ),
@@ -232,7 +233,7 @@ class ProfileTile extends StatelessWidget {
             ),
           ],
         ),
-        subtitle: Text(subtitle),
+        subtitle: Text(zh(subtitle)),
         trailing: trailing,
         onTap: onTap,
       ),

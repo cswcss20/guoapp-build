@@ -736,8 +736,16 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
           left: 16,
           right: 16,
           bottom: bottom + 60,
-          height: 32,
-          child: _chrome(_progress(context)),
+          height: 40,
+          child: _chrome(
+            Row(
+              children: [
+                _seekButton(forward: false),
+                Expanded(child: _progress(context)),
+                _seekButton(forward: true),
+              ],
+            ),
+          ),
         ),
         Positioned(
           key: const ValueKey('episodes'),
@@ -958,6 +966,53 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
       ),
     ),
   );
+
+  void _seekBy(Duration offset) {
+    final state = _session.player.state;
+    if (!_session.ready || state.duration <= Duration.zero) return;
+    final target = (state.position.inMilliseconds + offset.inMilliseconds)
+        .clamp(0, state.duration.inMilliseconds);
+    unawaited(_session.seekTo(Duration(milliseconds: target)));
+  }
+
+  Widget _seekButton({required bool forward}) {
+    final seconds = _session.store.playbackPreferences.seekSeconds;
+    final arrow = Icon(Icons.replay_rounded, size: 24);
+    return IconButton(
+      onPressed: _session.ready
+          ? () => _seekBy(Duration(seconds: forward ? seconds : -seconds))
+          : null,
+      tooltip: forward ? '快进 $seconds 秒' : '快退 $seconds 秒',
+      color: Colors.white,
+      disabledColor: Colors.white.withValues(alpha: .36),
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(40),
+        padding: EdgeInsets.zero,
+      ),
+      icon: SizedBox(
+        width: 24,
+        height: 24,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (forward)
+              Transform.flip(flipX: true, child: arrow)
+            else
+              arrow,
+            Text(
+              '$seconds',
+              style: const TextStyle(
+                fontSize: 8,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                height: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _progress(BuildContext context) => PlaybackProgressBuilder(
     player: _session.player,

@@ -57,14 +57,16 @@ class ExploreFeed extends ChangeNotifier {
 
   WatchEntry? resumeIn(CatalogCategory tab) {
     final source = this.source;
-    if (source == null || tab.id != tabs.first.id) return null;
+    if (!store.heroResume || source == null || tab.id != tabs.first.id) {
+      return null;
+    }
     return store.history
         .where((entry) => entry.drama.source == source.id)
         .firstOrNull;
   }
 
   Drama? featuredIn(CatalogCategory tab) =>
-      tab.id == recommendTab.id && resumeIn(tab) == null
+      store.heroFeatured && tab.id == recommendTab.id && resumeIn(tab) == null
       ? _feeds[tab.id]?.items.firstOrNull
       : null;
 

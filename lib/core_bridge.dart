@@ -233,7 +233,6 @@ abstract class AppRepository {
     int quality = 0,
   }) => resolve(drama, episode, quality: quality);
   Future<AppUpdate?> checkUpdate(String version) async => null;
-  Future<void> reportUsage(String version) async {}
   Future<bool> sourceDevices(String source, {bool register = false}) async =>
       true;
   /// 调用站源模块的 account(command, payload)，用于浏览器验证后回写 Cookie/UA。
@@ -631,11 +630,6 @@ class NativeRepository extends AppRepository {
             url: result['url'] as String,
           )
         : null;
-  }
-
-  @override
-  Future<void> reportUsage(String version) async {
-    await _call({'action': 'reportUsage', 'version': version});
   }
 
   @override

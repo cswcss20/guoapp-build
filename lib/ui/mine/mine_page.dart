@@ -299,7 +299,7 @@ class MinePage extends StatelessWidget {
                         icon: Icons.person_rounded,
                         primary: true,
                         focusNode: recent.isEmpty ? entryFocus : null,
-                        title: store.profile.name,
+                        title: zh(store.profile.name),
                         subtitle:
                             zh('${store.profile.admin ? '管理员' : '普通用户'} · 切换用户'),
                         onTap: () => openUsers(context, store),
@@ -425,7 +425,7 @@ class _UserCard extends StatelessWidget {
                     spacing: 2,
                     children: [
                       Text(
-                        profile.name,
+                        zh(profile.name),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -483,7 +483,7 @@ class _Entry extends StatelessWidget {
                   Icon(icon, size: 22, color: colors.onSurfaceVariant),
                   Expanded(
                     child: Text(
-                      title,
+                      zh(title),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
@@ -620,7 +620,7 @@ class _TelevisionEntry extends StatelessWidget {
                       spacing: 2,
                       children: [
                         Text(
-                          title,
+                          zh(title),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -629,7 +629,7 @@ class _TelevisionEntry extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          subtitle,
+                          zh(subtitle),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(

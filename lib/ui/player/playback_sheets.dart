@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:media_kit/media_kit.dart';
 
 import '../../playback_preferences.dart';
 import '../../playback_session.dart';
+import '../../zh_script.dart';
 import '../theme/app_theme.dart';
 import 'cast_page.dart';
 import 'danmaku_settings.dart';
@@ -196,6 +198,71 @@ class PlaybackSettingsList extends StatelessWidget {
                       ),
                   ],
           ),
+          if (session.audioTracks.length > 1) ...[
+            const SizedBox(height: 18),
+            Text(zh('音轨'), style: label),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final (index, track) in session.audioTracks.indexed)
+                  _Choice(
+                    label: _audioTrackLabel(track, index),
+                    selected: track.id == session.audioTrack.id,
+                    onSelected: () =>
+                        _change(() => session.setAudioTrack(track)),
+                  ),
+              ],
+            ),
+          ],
+          if (session.subtitleTracks.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Text(zh('字幕'), style: label),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _Choice(
+                  label: zh('关闭'),
+                  selected: session.subtitleTrack.id == 'no',
+                  onSelected: () => _change(
+                    () => session.setSubtitleTrack(SubtitleTrack.no()),
+                  ),
+                ),
+                for (final (index, track) in session.subtitleTracks.indexed)
+                  _Choice(
+                    label: _subtitleTrackLabel(track, index),
+                    selected: track.id == session.subtitleTrack.id,
+                    onSelected: () =>
+                        _change(() => session.setSubtitleTrack(track)),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 18),
+          Text(zh('音画同步'), style: label),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final ms in audioDelayOptions)
+                _Choice(
+                  label: ms == 0
+                      ? zh('0 秒')
+                      : '${ms > 0 ? '+' : '-'}${(ms.abs() / 1000).toStringAsFixed(1)} ${zh('秒')}',
+                  selected: ms == session.audioDelayMs,
+                  onSelected: () => _change(() => session.setAudioDelay(ms)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            zh('声音慢于画面调负数，快于画面调正数；蓝牙耳机延迟通常调负数。'),
+            style: TextStyle(fontSize: 12, color: label.color),
+          ),
           if (!session.audio) ...[
             const SizedBox(height: 18),
             Text('画面比例', style: label),
@@ -274,6 +341,22 @@ class PlaybackSettingsList extends StatelessWidget {
       );
     },
   );
+}
+
+String _audioTrackLabel(AudioTrack track, int index) {
+  final title = track.title;
+  if (title != null && title.isNotEmpty) return title;
+  final language = track.language;
+  if (language != null && language.isNotEmpty) return language;
+  return zh('音轨 ${index + 1}');
+}
+
+String _subtitleTrackLabel(SubtitleTrack track, int index) {
+  final title = track.title;
+  if (title != null && title.isNotEmpty) return title;
+  final language = track.language;
+  if (language != null && language.isNotEmpty) return language;
+  return zh('字幕 ${index + 1}');
 }
 
 typedef SleepChoice = ({

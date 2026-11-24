@@ -166,10 +166,10 @@ class PlaybackSession extends ChangeNotifier {
       for (final changes in [stream.duration, stream.buffer, stream.rate])
         changes.listen((_) => _sync()),
       stream.tracks.listen((tracks) {
-        if (_audioDetected || !audioOnly(tracks)) return;
-        _audioDetected = true;
+        if (!_audioDetected && audioOnly(tracks)) _audioDetected = true;
         _notify();
       }),
+      stream.track.listen((_) => _notify()),
       stream.videoParams.listen((parameters) {
         final size = videoDisplaySize(parameters);
         if (size == null || _closed) return;
@@ -792,6 +792,10 @@ class PlaybackSession extends ChangeNotifier {
       _ => null,
     };
     if (hwdec != null) await platform.setProperty('hwdec', hwdec);
+    await platform.setProperty(
+      'audio-delay',
+      (store.playbackPreferences.audioDelayMs / 1000).toStringAsFixed(3),
+    );
     if (Platform.isAndroid) {
       await platform.setProperty('hwdec-codecs', 'all');
       await platform.setProperty('vd-lavc-skiploopfilter', 'nonkey');
@@ -1438,6 +1442,40 @@ class PlaybackSession extends ChangeNotifier {
     _speed = value;
     _notify();
     if (!_boosting) await _setRate(value);
+  }
+
+  List<AudioTrack> get audioTracks => _player.state.tracks.audio;
+  List<SubtitleTrack> get subtitleTracks => _player.state.tracks.subtitle;
+  AudioTrack get audioTrack => _player.state.track.audio;
+  SubtitleTrack get subtitleTrack => _player.state.track.subtitle;
+  int get audioDelayMs => _preferences.audioDelayMs;
+
+  Future<void> setAudioTrack(AudioTrack track) async {
+    await _player.setAudioTrack(track);
+    _notify();
+  }
+
+  Future<void> setSubtitleTrack(SubtitleTrack track) async {
+    await _player.setSubtitleTrack(track);
+    _notify();
+  }
+
+  Future<void> setAudioDelay(int ms) async {
+    if (ms == _preferences.audioDelayMs) return;
+    await _savePreferences(_preferences.copyWith(audioDelayMs: ms));
+    _applyAudioDelay();
+    _notify();
+  }
+
+  void _applyAudioDelay() {
+    final value = (_preferences.audioDelayMs / 1000).toStringAsFixed(3);
+    for (final target in [_player, ?_standby]) {
+      final platform = target.platform;
+      if (platform is! NativePlayer) continue;
+      unawaited(
+        platform.setProperty('audio-delay', value).catchError((Object _) {}),
+      );
+    }
   }
 
   Future<void> setVideoFit(VideoFit value) async {

@@ -76,7 +76,6 @@ const _links = [
     ('Telegram · 交流群组', String.fromEnvironment('TELEGRAM_GROUP_URL')),
     ('Telegram · 更新频道', String.fromEnvironment('TELEGRAM_CHANNEL_URL')),
   ],
-  [('感谢赞助 · mnyyds', 'https://github.com/mnyyds')],
 ];
 
 class SettingsSection extends StatelessWidget {
@@ -208,6 +207,16 @@ class SettingsSection extends StatelessWidget {
             onChanged: (decoder) => savePreferences(
               preferences.copyWith(televisionDecoder: decoder),
             ),
+          ),
+          ValueTile<int>(
+            title: '快退/快进秒数',
+            subtitle: '播放器快退、快进按钮每次跳过的秒数',
+            options: {
+              for (final seconds in seekStepOptions) seconds: '$seconds 秒',
+            },
+            value: preferences.seekSeconds,
+            onChanged: (seconds) =>
+                savePreferences(preferences.copyWith(seekSeconds: seconds)),
           ),
           if (Platform.isAndroid) const _RenderingTile(),
           SwitchTile(
@@ -648,13 +657,6 @@ class SettingsSection extends StatelessWidget {
             value: store.checkUpdates,
             onChanged: (value) =>
                 saveSetting(context, () => store.setCheckUpdates(value)),
-          ),
-          SwitchTile(
-            title: '匿名使用统计',
-            subtitle: '启动时发送随机编号、版本号、平台和所属版本，用于统计使用人数',
-            value: store.shareUsage,
-            onChanged: (value) =>
-                saveSetting(context, () => store.setShareUsage(value)),
           ),
         ],
       ),

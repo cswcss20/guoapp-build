@@ -5,6 +5,8 @@ import 'catalog_sort.dart';
 
 const playbackSpeeds = [.5, .75, 1.0, 1.1, 1.25, 1.5, 2.0, 3.0];
 const boostSpeeds = [1.5, 2.0, 2.5, 3.0, 4.0];
+const seekStepOptions = [5, 10, 15];
+const audioDelayOptions = [-500, -300, -200, -100, 0, 100, 200, 300, 500];
 const danmakuColors = [
   0xFFFFFFFF,
   0xFFFFE066,
@@ -115,6 +117,8 @@ class PlaybackPreferences {
     this.televisionDecoder = TelevisionDecoder.optimized,
     this.preopen,
     this.doubleTapSeek = true,
+    this.seekSeconds = 10,
+    this.audioDelayMs = 0,
     this.swipeLevels = true,
     this.swipeEpisodes = false,
     this.progressLine = true,
@@ -151,6 +155,8 @@ class PlaybackPreferences {
   final TelevisionDecoder televisionDecoder;
   final bool? preopen;
   final bool doubleTapSeek;
+  final int seekSeconds;
+  final int audioDelayMs;
   final bool swipeLevels;
   final bool swipeEpisodes;
   final bool progressLine;
@@ -186,6 +192,8 @@ class PlaybackPreferences {
     TelevisionDecoder? televisionDecoder,
     bool? preopen,
     bool? doubleTapSeek,
+    int? seekSeconds,
+    int? audioDelayMs,
     bool? swipeLevels,
     bool? swipeEpisodes,
     bool? progressLine,
@@ -218,6 +226,8 @@ class PlaybackPreferences {
     televisionDecoder: televisionDecoder ?? this.televisionDecoder,
     preopen: preopen ?? this.preopen,
     doubleTapSeek: doubleTapSeek ?? this.doubleTapSeek,
+    seekSeconds: seekSeconds ?? this.seekSeconds,
+    audioDelayMs: audioDelayMs ?? this.audioDelayMs,
     swipeLevels: swipeLevels ?? this.swipeLevels,
     swipeEpisodes: swipeEpisodes ?? this.swipeEpisodes,
     progressLine: progressLine ?? this.progressLine,
@@ -252,6 +262,8 @@ class PlaybackPreferences {
     'televisionDecoder': televisionDecoder.name,
     if (preopen != null) 'preopen': preopen,
     'doubleTapSeek': doubleTapSeek,
+    'seekSeconds': seekSeconds,
+    'audioDelayMs': audioDelayMs,
     'swipeLevels': swipeLevels,
     'swipeEpisodes': swipeEpisodes,
     'progressLine': progressLine,
@@ -275,6 +287,8 @@ class PlaybackPreferences {
     final preload = value['preload'] as bool? ?? true;
     final danmakuScale = (value['danmakuScale'] as num? ?? 1).toDouble();
     final danmakuColor = value['danmakuColor'] as int? ?? 0xFFFFFFFF;
+    final seekSeconds = value['seekSeconds'] as int? ?? 10;
+    final audioDelayMs = value['audioDelayMs'] as int? ?? 0;
     if (!playbackSpeeds.contains(speed) || quality < 0 || quality > 4320) {
       throw const FormatException('播放偏好无效');
     }
@@ -318,6 +332,8 @@ class PlaybackPreferences {
           TelevisionDecoder.optimized,
       preopen: value['preopen'] as bool?,
       doubleTapSeek: value['doubleTapSeek'] as bool? ?? true,
+      seekSeconds: seekStepOptions.contains(seekSeconds) ? seekSeconds : 10,
+      audioDelayMs: audioDelayOptions.contains(audioDelayMs) ? audioDelayMs : 0,
       swipeLevels: value['swipeLevels'] as bool? ?? true,
       swipeEpisodes: value['swipeEpisodes'] as bool? ?? false,
       progressLine: value['progressLine'] as bool? ?? true,

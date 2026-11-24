@@ -337,6 +337,14 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
     unawaited(_session.seekTo(Duration(milliseconds: target)));
   }
 
+  void _seekBy(Duration offset) {
+    final state = _session.player.state;
+    if (!_session.ready || state.duration <= Duration.zero) return;
+    final target = (state.position.inMilliseconds + offset.inMilliseconds)
+        .clamp(0, state.duration.inMilliseconds);
+    unawaited(_session.seekTo(Duration(milliseconds: target)));
+  }
+
   void _pressStart() {
     if (!_session.ready || _session.locked) return;
     _session.holdBoost();
@@ -720,6 +728,8 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
                 child: Row(
                   children: [
                     _playButton(size: 40, iconSize: 26),
+                    _seekButton(forward: false, size: 40, iconSize: 24),
+                    _seekButton(forward: true, size: 40, iconSize: 24),
                     const SizedBox(width: 4),
                     _clock(13),
                     const Spacer(),
@@ -870,6 +880,8 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
           child: Row(
             children: [
               _playButton(size: 44, iconSize: 30),
+              _seekButton(forward: false, size: 44, iconSize: 28),
+              _seekButton(forward: true, size: 44, iconSize: 28),
               const SizedBox(width: 4),
               _clock(13),
               const SizedBox(width: 8),
@@ -929,6 +941,49 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _seekButton({
+    required bool forward,
+    required double size,
+    required double iconSize,
+  }) {
+    final seconds = _session.store.playbackPreferences.seekSeconds;
+    final arrow = Icon(Icons.replay_rounded, size: iconSize);
+    return IconButton(
+      onPressed: _session.ready
+          ? () => _seekBy(Duration(seconds: forward ? seconds : -seconds))
+          : null,
+      tooltip: forward ? '快进 $seconds 秒' : '快退 $seconds 秒',
+      color: Colors.white,
+      disabledColor: Colors.white.withValues(alpha: .36),
+      style: IconButton.styleFrom(
+        fixedSize: Size.square(size),
+        padding: EdgeInsets.zero,
+      ),
+      icon: SizedBox(
+        width: iconSize,
+        height: iconSize,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (forward)
+              Transform.flip(flipX: true, child: arrow)
+            else
+              arrow,
+            Text(
+              '$seconds',
+              style: TextStyle(
+                fontSize: iconSize * .34,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                height: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

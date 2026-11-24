@@ -181,6 +181,22 @@ class AppearanceSettings extends StatelessWidget {
               ),
               const Divider(indent: 16, endIndent: 16),
               SwitchTile(
+                title: '在主页显示「继续观看」',
+                subtitle: '探索页顶部显示未看完的剧集大图',
+                value: store.heroResume,
+                onChanged: (value) =>
+                    saveSetting(context, () => store.setHeroResume(value)),
+              ),
+              const Divider(indent: 16, endIndent: 16),
+              SwitchTile(
+                title: '在主页显示「今日推荐」',
+                subtitle: '探索页顶部显示推荐剧集大图',
+                value: store.heroFeatured,
+                onChanged: (value) =>
+                    saveSetting(context, () => store.setHeroFeatured(value)),
+              ),
+              const Divider(indent: 16, endIndent: 16),
+              SwitchTile(
                 title: '在主页显示模糊封面按钮',
                 subtitle: '发现页站源按钮左边显示眼睛按钮，点一下模糊封面，再点恢复',
                 value: store.blurCoversButton,

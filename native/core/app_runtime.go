@@ -485,8 +485,6 @@ func nativeDispatch(input nativeInput) (any, error) {
 		return engine.nativeCast(ctx, input)
 	case "checkUpdate":
 		return engine.checkUpdate(ctx, input.Version)
-	case "reportUsage":
-		return true, engine.reportUsage(ctx, input.Version)
 	default:
 		return nil, errors.New("不支持的应用操作")
 	}
