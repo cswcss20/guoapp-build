@@ -191,6 +191,7 @@ class _AppShellState extends State<AppShell> {
   void _select(AppTab tab) {
     _barsShown.value = true;
     setState(() => _tab = tab);
+    if (tab == AppTab.explore) _explore.currentState?.ensureCategories();
   }
 
   bool _scrolled(ScrollNotification notification) {

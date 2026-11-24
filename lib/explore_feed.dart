@@ -79,6 +79,13 @@ class ExploreFeed extends ChangeNotifier {
     if (tab != null) _select(tab);
   }
 
+  void ensureCategories() {
+    final catalog = _catalog;
+    if (catalog != null && catalog.categories.length == 1) {
+      unawaited(_loadCategories(catalog));
+    }
+  }
+
   Future<void> refresh() async {
     final catalog = _catalog;
     if (catalog == null) return;

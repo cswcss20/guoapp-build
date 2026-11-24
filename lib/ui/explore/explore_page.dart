@@ -75,6 +75,8 @@ class ExplorePageState extends State<ExplorePage> {
     await _explore?.refresh();
   }
 
+  void ensureCategories() => _explore?.ensureCategories();
+
   void reselect() {
     final scroll = _activeScroll;
     if (scroll == null || !scroll.hasClients) return;

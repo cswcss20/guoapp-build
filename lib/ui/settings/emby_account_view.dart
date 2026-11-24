@@ -130,8 +130,8 @@ class _EmbyLoginDialogState extends State<_EmbyLoginDialog> {
   Future<void> _submit() async {
     final server = _server.text.trim();
     final username = _username.text.trim();
-    if (server.isEmpty || username.isEmpty || _secret.text.isEmpty) {
-      setState(() => _error = '请填写服务器地址、用户名和密码');
+    if (server.isEmpty || username.isEmpty) {
+      setState(() => _error = '请填写服务器地址和用户名');
       return;
     }
     setState(() {
@@ -190,7 +190,8 @@ class _EmbyLoginDialogState extends State<_EmbyLoginDialog> {
               maxLength: 128,
               onSubmitted: (_) => _submit(),
               decoration: InputDecoration(
-                labelText: '密码',
+                labelText: '密码（如有）',
+                hintText: '没有密码可留空',
                 errorText: _error,
               ),
             ),
