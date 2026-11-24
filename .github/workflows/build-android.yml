@@ -21,6 +21,12 @@ jobs:
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          sudo apt-get clean
+          df -h / | tail -1
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -66,8 +72,11 @@ jobs:
       - name: Build Android packages
         run: |
           python scripts/build_android.py --abi arm64-v8a
+          flutter clean
           python scripts/build_android.py --abi armeabi-v7a
+          flutter clean
           python scripts/build_android.py --abi x86_64
+          df -h / | tail -1
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
