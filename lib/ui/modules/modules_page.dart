@@ -13,6 +13,7 @@ import '../../source_modules.dart';
 import '../app_scope.dart';
 import '../settings/settings_rows.dart';
 import 'module_install.dart';
+import '../settings/emby_account_view.dart';
 import '../settings/sorani_account_view.dart';
 import 'browser_auth_view.dart';
 import '../widgets/bar_button.dart';
@@ -899,6 +900,10 @@ class _InstalledCard extends StatelessWidget {
         if (!television && module.id == 'sorani' && soraniAccountAvailable())
           SoraniAccountButton(admin: admin, style: _cardButton(colors)),
         if (!television &&
+            module.id == 'emby' &&
+            module.capabilities.contains('account'))
+          EmbyAccountButton(admin: admin, style: _cardButton(colors)),
+        if (!television &&
             module.id == 'supjav-cookie' &&
             module.capabilities.contains('account'))
           BrowserAuthButton(source: module.id, style: _cardButton(colors)),
@@ -1308,6 +1313,8 @@ class _ModuleMenu extends StatelessWidget {
       actions: [
         if (module.id == 'sorani' && soraniAccountAvailable())
           SoraniAccountButton(admin: admin),
+        if (module.id == 'emby' && module.capabilities.contains('account'))
+          EmbyAccountButton(admin: admin),
         if (module.id == 'supjav-cookie' &&
             module.capabilities.contains('account'))
           BrowserAuthButton(source: module.id),

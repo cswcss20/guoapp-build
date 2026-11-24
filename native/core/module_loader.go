@@ -196,6 +196,11 @@ func (module *jsModule) allowsHost(host string) bool {
 	host = strings.ToLower(host)
 	for _, pattern := range module.manifest.Hosts {
 		pattern = strings.ToLower(strings.TrimSpace(pattern))
+		if pattern == "*" {
+			// Modules for user-configured servers (e.g. a personal Emby)
+			// may declare "*" to reach the server the user signs in to.
+			return true
+		}
 		if suffix, wildcard := strings.CutPrefix(pattern, "*"); wildcard && strings.HasPrefix(suffix, ".") && strings.HasSuffix(host, suffix) {
 			return true
 		}
