@@ -54,6 +54,15 @@ jobs:
           fi
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/release.jks"
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+      - name: Patch flutter_inappwebview_android for AGP 9
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          PLUGIN=$(find "$HOME/.pub-cache/hosted/pub.dev" -maxdepth 1 -name 'flutter_inappwebview_android-*' | sort | tail -n1)
+          echo "plugin: $PLUGIN"
+          sed -i "s/proguard-android\.txt/proguard-android-optimize.txt/g" "$PLUGIN/android/build.gradle"
+          grep -n "proguard" "$PLUGIN/android/build.gradle" || true
       - name: Build Android packages
         run: python scripts/build_android.py
         env:
