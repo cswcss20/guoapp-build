@@ -959,7 +959,7 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
     final selected = _selected(menu);
     String label(Object value) => switch (menu) {
       _Menu.speed => '${value}x',
-      _Menu.quality => value == 0 ? '自动' : '${value}P',
+      _Menu.quality => value == 0 ? '自动' : _session.qualityText(value as int),
       _Menu.fit => (value as VideoFit).label,
     };
     return Container(

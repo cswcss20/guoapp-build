@@ -403,6 +403,8 @@ class PlaybackPlan {
     this.decryptionKey = '',
     this.quality = 0,
     this.qualities = const [],
+    this.label = '',
+    this.qualityLabels = const {},
     this.session = '',
     this.danmakuId = '',
     this.prefetchedBytes = 0,
@@ -416,6 +418,8 @@ class PlaybackPlan {
   final String decryptionKey;
   final int quality;
   final List<int> qualities;
+  final String label;
+  final Map<int, String> qualityLabels;
   final String session;
   final String danmakuId;
   final int prefetchedBytes;
@@ -434,6 +438,10 @@ class PlaybackPlan {
     quality: intValue(json['quality']),
     qualities: (json['qualities'] as List? ?? []).map(intValue).toSet().toList()
       ..sort((a, b) => b.compareTo(a)),
+    label: json['label'] as String? ?? '',
+    qualityLabels: (json['qualityLabels'] as Map? ?? {}).map(
+      (key, value) => MapEntry(intValue(key), value.toString()),
+    ),
     session: json['session'] as String? ?? '',
     danmakuId: json['danmakuId'] as String? ?? '',
     prefetchedBytes: intValue(json['prefetchedBytes']),

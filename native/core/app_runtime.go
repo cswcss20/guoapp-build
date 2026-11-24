@@ -120,6 +120,8 @@ type nativePlan struct {
 	Key             string            `json:"decryptionKey,omitempty"`
 	Quality         int               `json:"quality"`
 	Qualities       []int             `json:"qualities"`
+	Label           string            `json:"label,omitempty"`
+	QualityLabels   map[int]string    `json:"qualityLabels,omitempty"`
 	Session         string            `json:"session,omitempty"`
 	RouteIndex      int               `json:"routeIndex"`
 	RouteCount      int               `json:"routeCount"`

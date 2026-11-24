@@ -1372,7 +1372,7 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
           _ => _options<int>(
             values: [...session.qualities, 0],
             selected: session.quality,
-            label: (value) => value == 0 ? '自动' : '${value}P',
+            label: (value) => value == 0 ? '自动' : session.qualityText(value),
             onSelected: (value) => _change(() => session.setQuality(value)),
           ),
         },

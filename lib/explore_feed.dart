@@ -83,8 +83,8 @@ class ExploreFeed extends ChangeNotifier {
 
   void ensureCategories() {
     final catalog = _catalog;
-    if (catalog != null && catalog.categories.length == 1) {
-      unawaited(_loadCategories(catalog));
+    if (catalog != null) {
+      unawaited(_loadCategories(catalog, force: true));
     }
   }
 
@@ -120,8 +120,21 @@ class ExploreFeed extends ChangeNotifier {
       await catalog.loadCategories(force: force);
     } catch (_) {}
     if (_disposed || catalog != _catalog) return;
+    _reconcileTabs(catalog);
     _prefetch();
     _notify();
+  }
+
+  void _reconcileTabs(SourceCatalog catalog) {
+    final valid = {for (final tab in tabs) tab.id};
+    for (final id in _feeds.keys.toList()) {
+      if (valid.contains(id)) continue;
+      _feeds.remove(id)?.dispose();
+      _rankings.remove(id);
+    }
+    if (!valid.contains(_tab.id)) {
+      _select(catalog.recommends ? recommendTab : CatalogCategory.all);
+    }
   }
 
   void _select(CatalogCategory tab) {

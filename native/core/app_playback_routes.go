@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -17,6 +18,7 @@ type nativePlaybackChoice struct {
 	media         []ProviderMedia
 	index         int
 	qualities     []int
+	qualityLabels map[int]string
 	streamSession string
 	created       time.Time
 }
@@ -25,6 +27,7 @@ func nativePlaybackChoices(media ProviderMedia, quality int) nativePlaybackChoic
 	choice := nativePlaybackChoice{qualities: []int{}}
 	seen := map[string]bool{}
 	qualities := map[int]bool{}
+	labels := map[int][]string{}
 	for _, option := range append([]ProviderMedia{media}, media.Variants...) {
 		if !IsProviderHTTPMediaURL(option.URL) {
 			continue
@@ -38,6 +41,24 @@ func nativePlaybackChoices(media ProviderMedia, quality int) nativePlaybackChoic
 		choice.media = append(choice.media, option)
 		if option.Quality > 0 {
 			qualities[option.Quality] = true
+			if label := strings.TrimSpace(option.Label); label != "" {
+				found := false
+				for _, existing := range labels[option.Quality] {
+					if existing == label {
+						found = true
+						break
+					}
+				}
+				if !found {
+					labels[option.Quality] = append(labels[option.Quality], label)
+				}
+			}
+		}
+	}
+	if len(labels) > 0 {
+		choice.qualityLabels = map[int]string{}
+		for value, names := range labels {
+			choice.qualityLabels[value] = strings.Join(names, " / ")
 		}
 	}
 	sort.SliceStable(choice.media, func(i, j int) bool { return choice.media[i].Quality > choice.media[j].Quality })
@@ -89,6 +110,7 @@ func (engine *nativeEngine) nativeOpenPlayback(ctx context.Context, choice nativ
 		DanmakuID: choice.danmakuVideo,
 		URL:       media.URL, Headers: map[string]string{"User-Agent": UserAgent, "Referer": media.Referer},
 		Key: hex.EncodeToString(media.CENCKey), Quality: media.Quality, Qualities: choice.qualities,
+		Label: media.Label, QualityLabels: choice.qualityLabels,
 		RouteIndex: choice.index, RouteCount: len(choice.media), Session: hex.EncodeToString(tokenBytes),
 	}
 	if media.Credentials != nil && !media.Credentials.Expires.IsZero() {

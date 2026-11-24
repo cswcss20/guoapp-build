@@ -190,7 +190,7 @@ class PlaybackSettingsList extends StatelessWidget {
                             ? (session.quality == 0
                                   ? session.qualityLabel
                                   : '自动')
-                            : '${quality}P',
+                            : session.qualityText(quality),
                         selected: quality == session.quality,
                         onSelected: session.ready
                             ? () => _change(() => session.setQuality(quality))

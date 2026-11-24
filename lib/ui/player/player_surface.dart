@@ -335,6 +335,33 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
     }
   }
 
+  void _seekBy(Duration offset) {
+    final state = _session.player.state;
+    if (!_session.ready || state.duration <= Duration.zero) return;
+    final target = (state.position.inMilliseconds + offset.inMilliseconds)
+        .clamp(0, state.duration.inMilliseconds);
+    unawaited(_session.seekTo(Duration(milliseconds: target)));
+  }
+
+  void _saveFailed() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('播放偏好未能保存，请重试')));
+  }
+
+  Future<void> _openSettings() async {
+    _close();
+    await showPlayerSheet(
+      context,
+      (_) => PlaybackSettings(
+        session: _session,
+        onFailure: _saveFailed,
+        onMiniWindow: widget.onMiniWindow,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _session,
@@ -741,6 +768,8 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
       return true;
     }
 
+    final showSeek = fits(_iconSlot * 2);
+    final showSettings = fits(_iconSlot);
     final showSpeed = fits(_textSlot(speed, bold: true));
     final showQuality = fits(_textSlot(_session.qualityLabel));
     final showWide = !widget.touch && !widget.fullscreen && fits(_iconSlot);
@@ -757,6 +786,7 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
           '上一集',
           _session.hasPrevious ? () => unawaited(_session.previous()) : null,
         ),
+        if (showSeek) _seekButton(forward: false),
         _icon(
           playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
           playing ? '暂停' : '播放',
@@ -764,6 +794,7 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
           size: 48,
           iconSize: 30,
         ),
+        if (showSeek) _seekButton(forward: true),
         _icon(
           Icons.skip_next_rounded,
           '下一集',
@@ -851,6 +882,12 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
             widget.onWide,
             color: widget.wide ? colors.primary : null,
           ),
+        if (showSettings)
+          _icon(
+            Icons.settings_rounded,
+            '播放设置',
+            () => unawaited(_openSettings()),
+          ),
         _icon(
           widget.fullscreen
               ? Icons.fullscreen_exit_rounded
@@ -859,6 +896,54 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
           widget.onFullscreen,
         ),
       ],
+    );
+  }
+
+  Widget _seekButton({required bool forward}) {
+    final seconds = _session.store.playbackPreferences.seekSeconds;
+    const iconSize = 28.0;
+    final arrow = Icon(Icons.replay_rounded, size: iconSize);
+    return Semantics(
+      label: forward ? '快进 $seconds 秒' : '快退 $seconds 秒',
+      button: true,
+      excludeSemantics: true,
+      child: _HoverScale(
+        enabled: _session.ready,
+        child: IconButton(
+          onPressed: _session.ready
+              ? () => _seekBy(Duration(seconds: forward ? seconds : -seconds))
+              : null,
+          color: Colors.white,
+          disabledColor: Colors.white.withValues(alpha: .36),
+          style: IconButton.styleFrom(
+            fixedSize: const Size.square(44),
+            padding: EdgeInsets.zero,
+            overlayColor: Colors.transparent,
+          ),
+          icon: SizedBox(
+            width: iconSize,
+            height: iconSize,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (forward)
+                  Transform.flip(flipX: true, child: arrow)
+                else
+                  arrow,
+                Text(
+                  '$seconds',
+                  style: const TextStyle(
+                    fontSize: iconSize * .34,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    height: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -938,7 +1023,7 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
       _Popup.quality => _options<int>(
         values: [..._session.qualities, 0],
         selected: _session.quality,
-        label: (value) => value == 0 ? '自动' : '${value}P',
+        label: (value) => value == 0 ? '自动' : _session.qualityText(value),
         onSelected: (value) => _change(() => _session.setQuality(value)),
       ),
       _Popup.fit => _options<VideoFit>(

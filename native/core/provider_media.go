@@ -21,6 +21,7 @@ type ProviderMedia struct {
 	HLSKey      []byte
 	CENCKey     []byte
 	Quality     int
+	Label       string
 	Variants    []ProviderMedia
 }
 

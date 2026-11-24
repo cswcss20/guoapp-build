@@ -338,8 +338,22 @@ class PlaybackSession extends ChangeNotifier {
     if (plan != null && plan.local) {
       return plan.quality > 0 ? '本地 ${plan.quality}P' : '本地';
     }
-    if (_quality > 0) return '${_quality}P';
-    return plan != null && plan.quality > 0 ? '自动（${plan.quality}P）' : '自动';
+    final routeLabel = plan?.label ?? '';
+    if (_quality > 0) {
+      return routeLabel.isNotEmpty && plan?.quality == _quality
+          ? '${_quality}P · $routeLabel'
+          : '${_quality}P';
+    }
+    return plan != null && plan.quality > 0
+        ? (routeLabel.isNotEmpty
+              ? '自动（${plan.quality}P · $routeLabel）'
+              : '自动（${plan.quality}P）')
+        : '自动';
+  }
+
+  String qualityText(int value) {
+    final label = _plan?.qualityLabels[value];
+    return label == null || label.isEmpty ? '${value}P' : '${value}P · $label';
   }
 
   double get currentPosition =>

@@ -35,6 +35,7 @@ Name: "{app}"; Flags: uninsalwaysuninstall
 [InstallDelete]
 Type: files; Name: "{app}\hongguojian.exe"
 Type: files; Name: "{app}\zhenguojian.exe"
+Type: files; Name: "{app}\guoapp.exe"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "\{#BundleExecutable}"; Flags: ignoreversion recursesubdirs createallsubdirs

@@ -1,2 +1,2 @@
 const appName = 'Hopeapp';
-const appSlug = 'guoapp';
+const appSlug = 'hopeapp';

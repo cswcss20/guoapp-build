@@ -139,12 +139,13 @@ type jsMedia struct {
 	HLSKey      []byte         `json:"hlsKey"`
 	CENCKey     []byte         `json:"cencKey"`
 	Quality     int            `json:"quality"`
+	Label       string         `json:"label"`
 	DurationMS  int64          `json:"durationMs"`
 	Variants    []jsMedia      `json:"variants"`
 }
 
 func (media jsMedia) providerMedia() ProviderMedia {
-	converted := ProviderMedia{URL: media.URL, Referer: media.Referer, Playlist: media.Playlist, Quality: media.Quality,
+	converted := ProviderMedia{URL: media.URL, Referer: media.Referer, Playlist: media.Playlist, Quality: media.Quality, Label: media.Label,
 		HLSKey: media.HLSKey, CENCKey: media.CENCKey, Duration: time.Duration(media.DurationMS) * time.Millisecond}
 	if credentials := media.Credentials; credentials != nil {
 		converted.Credentials = &MediaCredentials{Cookie: credentials.Cookie, Origin: credentials.Origin,
@@ -160,7 +161,7 @@ func (media jsMedia) providerMedia() ProviderMedia {
 }
 
 func moduleMedia(media ProviderMedia) jsMedia {
-	converted := jsMedia{URL: media.URL, Referer: media.Referer, Playlist: media.Playlist, Quality: media.Quality,
+	converted := jsMedia{URL: media.URL, Referer: media.Referer, Playlist: media.Playlist, Quality: media.Quality, Label: media.Label,
 		HLSKey: media.HLSKey, CENCKey: media.CENCKey, DurationMS: media.Duration.Milliseconds()}
 	if credentials := media.Credentials; credentials != nil {
 		converted.Credentials = &jsCredentials{Cookie: credentials.Cookie, Origin: credentials.Origin,
