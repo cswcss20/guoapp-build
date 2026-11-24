@@ -10,6 +10,7 @@ import '../app_device.dart';
 import '../core_bridge.dart';
 import '../local_store.dart';
 import '../theme_color.dart';
+import '../zh_script.dart';
 import 'app_scope.dart';
 import 'cover_blur.dart';
 import 'device_registration.dart';
@@ -249,6 +250,8 @@ class _DuanjuAppState extends State<DuanjuApp> with WidgetsBindingObserver {
         : null;
     final seed =
         systemColor ?? Color((store?.themeColor ?? ThemeColor.orange).seed);
+    final chineseScript = store?.chineseScript ?? 'traditional';
+    ChineseScript.mode = chineseScript;
     final pureBlack = store?.pureBlack ?? false;
     if ((seed, television, pureBlack) != _themeKey) {
       _themeKey = (seed, television, pureBlack);
@@ -269,11 +272,13 @@ class _DuanjuAppState extends State<DuanjuApp> with WidgetsBindingObserver {
     );
     return MaterialApp(
       navigatorKey: _navigator,
-      title: appName,
+      title: zh(appName),
       debugShowCheckedModeBanner: false,
       scrollBehavior: const FocusOutlineScrollBehavior(),
-      locale: const Locale('zh', 'CN'),
-      supportedLocales: const [Locale('zh', 'CN')],
+      locale: chineseScript == 'traditional'
+          ? const Locale('zh', 'TW')
+          : const Locale('zh', 'CN'),
+      supportedLocales: const [Locale('zh', 'CN'), Locale('zh', 'TW')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: _themes.$1,
       darkTheme: _themes.$2,
@@ -366,12 +371,12 @@ class _BootScreen extends StatelessWidget {
           children: [
             if (error == null) const CircularProgressIndicator(),
             Text(
-              error ?? '正在打开$appName',
+              zh(error ?? '正在打开$appName'),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             if (error != null && onRetry != null)
-              FilledButton(onPressed: onRetry, child: const Text('重新打开')),
+              FilledButton(onPressed: onRetry, child: Text(zh('重新打开'))),
           ],
         ),
       ),

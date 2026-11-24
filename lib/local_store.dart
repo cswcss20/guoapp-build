@@ -15,6 +15,7 @@ import 'local_snapshot.dart';
 import 'models.dart';
 import 'playback_preferences.dart';
 import 'theme_color.dart';
+import 'zh_script.dart';
 
 const _usersFile = LocalFiles.marker;
 const _settingsFile = 'settings.json';
@@ -469,6 +470,13 @@ class LocalStore extends ChangeNotifier {
     return _themeModes.contains(value) ? value as String : 'system';
   }
 
+  String get chineseScript {
+    final value = _settings['chineseScript'];
+    return chineseScriptModes.containsKey(value)
+        ? value as String
+        : 'traditional';
+  }
+
   bool get followSystemColor => _flag('followSystemColor', true);
   ThemeColor get themeColor =>
       ThemeColor.byName(_settings['themeColor']) ?? ThemeColor.orange;
@@ -547,6 +555,44 @@ class LocalStore extends ChangeNotifier {
     ).whereType<String>().take(20).toList();
   }
 
+  List<FavoriteTag> get favoriteTags {
+    if (locked) return const [];
+    final entries = <FavoriteTag>[];
+    for (final row in _rows(_userSettings['favoriteTags'])) {
+      try {
+        final item = FavoriteTag.fromJson(row);
+        if (item.source.isNotEmpty &&
+            item.tag.isNotEmpty &&
+            allowsSource(item.source)) {
+          entries.add(item);
+        }
+      } catch (_) {}
+    }
+    entries.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+    return entries;
+  }
+
+  List<FavoriteTag> _allStoredFavoriteTags() {
+    final entries = <FavoriteTag>[];
+    for (final row in _rows(_userSettings['favoriteTags'])) {
+      try {
+        final item = FavoriteTag.fromJson(row);
+        if (item.source.isNotEmpty && item.tag.isNotEmpty) {
+          entries.add(item);
+        }
+      } catch (_) {}
+    }
+    return entries;
+  }
+
+  bool isFavoriteTag(String source, String tag) {
+    final clean = tag.trim();
+    if (clean.isEmpty || !allowsSource(source)) return false;
+    return favoriteTags.any(
+      (item) => item.source == source && item.tag == clean,
+    );
+  }
+
   Future<void> _saveSettings(Map<String, Object?> settings) async {
     await _write(_settingsFile, settings);
     _settings = settings;
@@ -595,6 +641,63 @@ class LocalStore extends ChangeNotifier {
       if (entry != query) entry,
   ]);
 
+  Future<bool> toggleFavoriteTag(String source, String tag) {
+    final clean = tag.trim();
+    if (clean.isEmpty || clean.runes.length > 80 || !allowsSource(source)) {
+      return Future.value(false);
+    }
+    final epoch = _epoch;
+    var added = false;
+    return _queue(() async {
+      if (locked || epoch != _epoch) return;
+      final existing = _allStoredFavoriteTags();
+      final id = '$source:$clean';
+      final had = existing.any((item) => item.id == id);
+      final updated = [
+        for (final item in existing)
+          if (item.id != id) item,
+        if (!had)
+          FavoriteTag(
+            source: source,
+            tag: clean,
+            addedAt: DateTime.now().millisecondsSinceEpoch,
+          ),
+      ];
+      if (!had && updated.length > 500) {
+        throw StateError('收藏标签数量已达上限，请先整理');
+      }
+      final settings = {
+        ..._userSettings,
+        'favoriteTags': [for (final item in updated) item.toJson()],
+      };
+      await _write(_userFile(_current, 'settings'), settings);
+      _userSettings = settings;
+      added = !had;
+      _notify();
+    }).then((_) => added);
+  }
+
+  Future<void> removeFavoriteTags(Set<String> ids) {
+    if (ids.isEmpty) return Future.value();
+    final epoch = _epoch;
+    return _queue(() async {
+      if (locked || epoch != _epoch) return;
+      final existing = _allStoredFavoriteTags();
+      final updated = [
+        for (final item in existing)
+          if (!ids.contains(item.id)) item,
+      ];
+      if (updated.length == existing.length) return;
+      final settings = {
+        ..._userSettings,
+        'favoriteTags': [for (final item in updated) item.toJson()],
+      };
+      await _write(_userFile(_current, 'settings'), settings);
+      _userSettings = settings;
+      _notify();
+    });
+  }
+
   Future<void> setForceLogin(bool value) => _queue(() async {
     _requireAdmin();
     await _saveUsers(_profiles, _current, value);
@@ -612,6 +715,10 @@ class LocalStore extends ChangeNotifier {
       : Future.value();
   Future<void> setThemeMode(String value) => _themeModes.contains(value)
       ? _setting('themeMode', value)
+      : Future.value();
+  Future<void> setChineseScript(String value) =>
+      chineseScriptModes.containsKey(value)
+      ? _setting('chineseScript', value)
       : Future.value();
   Future<void> setFollowSystemColor(bool value) =>
       _setting('followSystemColor', value);
@@ -1057,6 +1164,7 @@ class LocalStore extends ChangeNotifier {
         'playback': _map(settings['playback']),
         'downloadPreferences': _map(settings['downloadPreferences']),
         'recentSearches': _list(settings['recentSearches']),
+        'favoriteTags': _list(settings['favoriteTags']),
       };
     }
     final content = jsonEncode({
@@ -1065,6 +1173,7 @@ class LocalStore extends ChangeNotifier {
       'profiles': _profiles.map((profile) => profile.toJson()).toList(),
       'displayMode': displayMode,
       'themeMode': themeMode,
+      'chineseScript': chineseScript,
       'followSystemColor': followSystemColor,
       'themeColor': themeColor.name,
       'pureBlack': pureBlack,
@@ -1102,6 +1211,10 @@ class LocalStore extends ChangeNotifier {
     if (data.containsKey('themeMode') &&
         !_themeModes.contains(data['themeMode'])) {
       throw const FormatException('备份主题设置无效');
+    }
+    if (data.containsKey('chineseScript') &&
+        !chineseScriptModes.containsKey(data['chineseScript'])) {
+      throw const FormatException('备份语言设置无效');
     }
     if (data.containsKey('followSystemColor') &&
             data['followSystemColor'] is! bool ||
@@ -1186,6 +1299,21 @@ class LocalStore extends ChangeNotifier {
           )) {
         throw const FormatException('备份搜索记录无效');
       }
+      final savedTags = library['favoriteTags'] as List? ?? [];
+      if (savedTags.length > 500) {
+        throw const FormatException('备份收藏标签过多');
+      }
+      for (final row in savedTags) {
+        final item = FavoriteTag.fromJson(
+          Map<String, dynamic>.from(row as Map),
+        );
+        if (item.source.isEmpty ||
+            !validSourceId(item.source) ||
+            item.tag.isEmpty ||
+            item.tag.runes.length > 80) {
+          throw const FormatException('备份收藏标签无效');
+        }
+      }
     }
     return data;
   }
@@ -1200,6 +1328,8 @@ class LocalStore extends ChangeNotifier {
             ? data['displayMode']
             : 'auto',
         if (data['themeMode'] case final String mode) 'themeMode': mode,
+        if (data['chineseScript'] case final String script)
+          'chineseScript': script,
         if (data['followSystemColor'] case final bool follow)
           'followSystemColor': follow,
         if (ThemeColor.byName(data['themeColor']) case final color?)
@@ -1232,6 +1362,7 @@ class LocalStore extends ChangeNotifier {
           'playback': library['playback'] ?? {},
           'downloadPreferences': library['downloadPreferences'] ?? {},
           'recentSearches': library['recentSearches'] ?? [],
+          'favoriteTags': library['favoriteTags'] ?? [],
         },
       });
     }

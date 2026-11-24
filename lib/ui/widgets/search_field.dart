@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../native_text_input.dart';
+import '../../zh_script.dart';
 import '../app_scope.dart';
 import 'letter_keyboard.dart';
 
@@ -31,7 +32,7 @@ class SearchField extends StatelessWidget {
   InputDecoration _decoration(ColorScheme colors) {
     final radius = BorderRadius.circular(height / 2);
     return InputDecoration(
-      hintText: hint,
+      hintText: zh(hint),
       isDense: true,
       filled: true,
       fillColor: colors.surfaceContainerHigh,

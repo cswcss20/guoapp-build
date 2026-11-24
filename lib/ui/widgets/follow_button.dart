@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../local_store.dart';
 import '../../models.dart';
+import '../../zh_script.dart';
 import '../theme/motion.dart';
 import 'focus_ring.dart';
 import 'motion/motion_widgets.dart';
@@ -34,10 +35,10 @@ Future<void> quickFollow(
       SnackBar(
         persist: false,
         content: Text(
-          followed ? '已取消追剧「${drama.title}」' : '已追剧「${drama.title}」',
+          zh(followed ? '已取消追剧「${drama.title}」' : '已追剧「${drama.title}」'),
         ),
         action: SnackBarAction(
-          label: '撤销',
+          label: zh('撤销'),
           onPressed: () => store
               .toggleFavorite(drama)
               .catchError(
@@ -102,16 +103,16 @@ class FollowPill extends StatelessWidget {
           label: Stack(
             alignment: Alignment.center,
             children: [
-              const Visibility(
+              Visibility(
                 visible: false,
                 maintainSize: true,
                 maintainAnimation: true,
                 maintainState: true,
-                child: Text('已追剧'),
+                child: Text(zh('已追剧')),
               ),
               FadeSwitcher(
                 duration: Motion.short,
-                child: Text(followed ? '已追剧' : '追剧', key: ValueKey(followed)),
+                child: Text(zh(followed ? '已追剧' : '追剧'), key: ValueKey(followed)),
               ),
             ],
           ),
@@ -144,7 +145,7 @@ class FollowIcon extends StatelessWidget {
     builder: (context, _) {
       final followed = store.isFavorite(drama.id);
       return Semantics(
-        label: followed ? '已追剧，轻点取消' : '追剧',
+        label: zh(followed ? '已追剧，轻点取消' : '追剧'),
         button: true,
         excludeSemantics: true,
         child: IconButton(

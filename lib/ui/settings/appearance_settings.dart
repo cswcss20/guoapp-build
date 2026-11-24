@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../local_store.dart';
 import '../../theme_color.dart';
+import '../../zh_script.dart';
 import '../app_scope.dart';
 import '../theme/motion.dart';
 import '../widgets/focus_ring.dart';
@@ -43,6 +44,27 @@ class AppearanceSettings extends StatelessWidget {
         GroupCard(
           children: [
             SettingsTile(
+              title: '界面语言',
+              subtitle:
+                  chineseScriptModes[store.chineseScript] ??
+                  chineseScriptModes['traditional']!,
+              onTap: () async {
+                final selection = await showOptionDialog(
+                  context,
+                  title: '界面语言',
+                  options: chineseScriptModes,
+                  selected: store.chineseScript,
+                );
+                if (selection != null && context.mounted) {
+                  await saveSetting(
+                    context,
+                    () => store.setChineseScript(selection),
+                  );
+                }
+              },
+            ),
+            const Divider(indent: 16, endIndent: 16),
+            SettingsTile(
               title: '主题模式',
               subtitle: themeModes[store.themeMode] ?? themeModes['system']!,
               onTap: () async {
@@ -73,11 +95,13 @@ class AppearanceSettings extends StatelessWidget {
               builder: (focusNode) => SwitchListTile(
                 focusNode: focusNode,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                title: const Text('跟随系统取色'),
+                title: Text(zh('跟随系统取色')),
                 subtitle: Text(
-                  systemColorAvailable
-                      ? 'Android 12 及以上跟随壁纸，Windows 跟随系统强调色'
-                      : '本机不支持系统取色，使用预设色板',
+                  zh(
+                    systemColorAvailable
+                        ? 'Android 12 及以上跟随壁纸，Windows 跟随系统强调色'
+                        : '本机不支持系统取色，使用预设色板',
+                  ),
                 ),
                 value: following,
                 onChanged: systemColorAvailable
@@ -101,9 +125,9 @@ class AppearanceSettings extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       spacing: 2,
                       children: [
-                        Text('预设色板', style: text.titleMedium),
+                        Text(zh('预设色板'), style: text.titleMedium),
                         Text(
-                          following ? '关闭「跟随系统取色」后可选' : '选一个种子色生成整套配色',
+                          zh(following ? '关闭「跟随系统取色」后可选' : '选一个种子色生成整套配色'),
                           style: text.bodyMedium?.copyWith(
                             color: colors.onSurfaceVariant,
                           ),
@@ -268,7 +292,7 @@ class _Swatch extends StatelessWidget {
         Semantics(
           button: true,
           selected: selected,
-          label: color.label,
+          label: zh(color.label),
           excludeSemantics: true,
           child: FocusRing(
             radius: 999,
@@ -311,7 +335,7 @@ class _Swatch extends StatelessWidget {
           ),
         ),
         Text(
-          color.label,
+          zh(color.label),
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

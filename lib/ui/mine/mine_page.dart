@@ -5,6 +5,7 @@ import '../../download_converter.dart';
 import '../../merge_queue.dart';
 import '../../download_overview.dart';
 import '../../local_store.dart';
+import '../../zh_script.dart';
 import '../../models.dart';
 import '../app_scope.dart';
 import '../detail/detail_page.dart';
@@ -257,8 +258,8 @@ class MinePage extends StatelessWidget {
                   children: [
                     Semantics(
                       header: true,
-                      child: const Text(
-                        '最近观看',
+                      child: Text(
+                        zh('最近观看'),
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
@@ -300,7 +301,7 @@ class MinePage extends StatelessWidget {
                         focusNode: recent.isEmpty ? entryFocus : null,
                         title: store.profile.name,
                         subtitle:
-                            '${store.profile.admin ? '管理员' : '普通用户'} · 切换用户',
+                            zh('${store.profile.admin ? '管理员' : '普通用户'} · 切换用户'),
                         onTap: () => openUsers(context, store),
                       ),
                     ),
@@ -433,7 +434,7 @@ class _UserCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '${profile.admin ? '管理员' : '普通用户'} · 轻点切换用户',
+                        zh('${profile.admin ? '管理员' : '普通用户'} · 轻点切换用户'),
                         style: TextStyle(
                           fontSize: 13,
                           color: colors.onSurfaceVariant,
@@ -668,7 +669,7 @@ class _EmptyHistory extends StatelessWidget {
         children: [
           Icon(Icons.history_rounded, size: 32, color: colors.onSurfaceVariant),
           Text(
-            '还没有观看记录',
+            zh('还没有观看记录'),
             style: TextStyle(fontSize: 14, color: colors.onSurfaceVariant),
           ),
         ],

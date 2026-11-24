@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../local_store.dart';
+import '../../zh_script.dart';
 import '../../resource_settings_editor.dart';
 import '../app_scope.dart';
 import '../shell/app_shell.dart';
@@ -23,7 +24,7 @@ void openUsers(BuildContext context, LocalStore store) => openPage<void>(
   (context) => settingsSplit(context)
       ? SettingsPage(store: store, initialGroup: SettingsGroup.users)
       : Scaffold(
-          appBar: AppBar(title: Text(SettingsGroup.users.label)),
+          appBar: AppBar(title: Text(zh(SettingsGroup.users.label))),
           body: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
@@ -67,7 +68,7 @@ class _ProxySettingsPageState extends State<_ProxySettingsPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(SettingsGroup.proxy.label)),
+    appBar: AppBar(title: Text(zh(SettingsGroup.proxy.label))),
     body: ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
@@ -86,7 +87,7 @@ void _openFullPage(BuildContext context, String title, WidgetBuilder body) =>
     openPage<void>(
       context,
       (context) => Scaffold(
-        appBar: AppBar(title: Text(title)),
+        appBar: AppBar(title: Text(zh(title))),
         body: body(context),
       ),
     );
@@ -145,6 +146,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final scope = AppScope.of(context);
     return switch (group) {
       SettingsGroup.appearance => [
+        chineseScriptModes[store.chineseScript],
         themeModes[store.themeMode],
         scope.systemColorAvailable && store.followSystemColor
             ? '系统取色'
@@ -246,7 +248,7 @@ class _SettingsPageState extends State<SettingsPage> {
       settingsSplit(context) ? _split(context) : _phone(context);
 
   Widget _phone(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('设置')),
+    appBar: AppBar(title: Text(zh('设置'))),
     body: ListenableBuilder(
       listenable: widget.store,
       builder: (context, _) => ListView(
@@ -344,13 +346,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 if (!television)
                   BarButton(
                     icon: Icons.arrow_back_rounded,
-                    tooltip: '返回',
+                    tooltip: zh('返回'),
                     onPressed: () => Navigator.pop(context),
                   ),
                 Padding(
                   padding: EdgeInsets.only(left: television ? 8 : 0),
                   child: Text(
-                    '设置',
+                    zh('设置'),
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
@@ -528,7 +530,7 @@ class _DetailHeader extends StatelessWidget {
           if (onBack != null)
             BarButton(
               icon: Icons.arrow_back_rounded,
-              tooltip: '返回',
+              tooltip: zh('返回'),
               onPressed: onBack,
             ),
           Expanded(

@@ -11,7 +11,9 @@ import '../../models.dart';
 import '../app_scope.dart';
 import '../downloads/download_picker_page.dart';
 import '../player/playback_handle.dart';
+import '../../zh_script.dart';
 import '../player/playback_page.dart';
+import '../search/search_page.dart';
 import '../shell/app_shell.dart';
 import '../widgets/cover_backdrop.dart';
 import '../widgets/cover_image.dart';
@@ -409,6 +411,45 @@ class _DetailPageState extends State<DetailPage> {
     (_) => DownloadPickerPage(store: widget.store, detail: _detail),
   );
 
+  void _openTag(Drama drama, String tag) {
+    final query = tag.trim();
+    if (query.isEmpty) return;
+    final site = SourceSite.byId(drama.source);
+    if (!site.onlineSearch || !widget.store.allowsSource(site.id)) return;
+    openPage<void>(
+      context,
+      (_) => SearchPage(store: widget.store, source: site, query: query),
+    );
+  }
+
+  Future<void> _toggleFavoriteTag(Drama drama, String tag) async {
+    final query = tag.trim();
+    if (query.isEmpty || !widget.store.allowsSource(drama.source)) return;
+    unawaited(HapticFeedback.selectionClick());
+    try {
+      final added = await widget.store.toggleFavoriteTag(
+        drama.source,
+        query,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            persist: false,
+            content: Text(
+              zh(added ? '已收藏标签「$query」' : '已取消收藏标签「$query」'),
+            ),
+          ),
+        );
+    } catch (failure) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$failure')));
+    }
+  }
+
   void _locate(int index) {
     final group = index ~/ episodeGroupSize;
     _details!.selectGroup(group);
@@ -474,7 +515,7 @@ class _DetailPageState extends State<DetailPage> {
       ),
       actions: [
         IconButton(
-          tooltip: '更新剧集信息',
+          tooltip: zh('更新剧集信息'),
           onPressed: details.loading ? null : _refresh,
           icon: const Icon(Icons.refresh_rounded),
         ),
@@ -636,7 +677,7 @@ class _DetailPageState extends State<DetailPage> {
                   FocusRing(
                     radius: m.button / 2,
                     child: IconButton.filledTonal(
-                      tooltip: '下载选集',
+                      tooltip: zh('下载选集'),
                       onPressed: _ready ? _download : null,
                       style: IconButton.styleFrom(
                         minimumSize: Size.square(m.button),
@@ -805,6 +846,7 @@ class _DetailPageState extends State<DetailPage> {
           context: context,
           builder: (_) => _DescriptionDialog(drama: details.drama),
         ),
+        onTag: (tag) => _openTag(details.drama, tag),
       ),
     );
   }
@@ -967,22 +1009,69 @@ class _DetailPageState extends State<DetailPage> {
   Widget? _tags(Drama drama, _Metrics m) {
     if (drama.tags.isEmpty) return null;
     final colors = Theme.of(context).colorScheme;
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        for (final tag in drama.tags.take(12))
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: colors.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(6),
+    final searchable =
+        SourceSite.byId(drama.source).onlineSearch &&
+        widget.store.allowsSource(drama.source);
+    return ListenableBuilder(
+      listenable: widget.store,
+      builder: (context, _) => Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final tag in drama.tags.take(24))
+            Builder(
+              builder: (context) {
+                final saved = widget.store.isFavoriteTag(drama.source, tag);
+                return FocusRing(
+                  radius: 6,
+                  child: Material(
+                    color: saved
+                        ? colors.primaryContainer
+                        : colors.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(6),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: searchable ? () => _openTag(drama, tag) : null,
+                      onLongPress: searchable
+                          ? () => _toggleFavoriteTag(drama, tag)
+                          : null,
+                      onSecondaryTap: searchable
+                          ? () => _toggleFavoriteTag(drama, tag)
+                          : null,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: 4,
+                          children: [
+                            if (saved)
+                              Icon(
+                                Icons.star_rounded,
+                                size: m.tag + 1,
+                                color: colors.onPrimaryContainer,
+                              ),
+                            Text(
+                              tag,
+                              style: TextStyle(
+                                fontSize: m.tag,
+                                color: saved
+                                    ? colors.onPrimaryContainer
+                                    : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-              child: Text(tag, style: TextStyle(fontSize: m.tag)),
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1001,7 +1090,7 @@ class _DetailPageState extends State<DetailPage> {
           3,
           constraints.maxWidth,
         );
-        final label = Text(_expanded ? '收起简介' : '展开简介');
+        final label = Text(zh(_expanded ? '收起简介' : '展开简介'));
         void toggle() => setState(() => _expanded = !_expanded);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1072,8 +1161,8 @@ class _DetailPageState extends State<DetailPage> {
 
   Widget _playButton(DramaDetails details, _Metrics m) {
     final label = details.watch != null && details.episodes.isNotEmpty
-        ? '继续播放 · 第 ${details.episodes[details.resumeIndex].number} 集'
-        : '立即播放';
+        ? zh('继续播放 · 第 ${details.episodes[details.resumeIndex].number} 集')
+        : zh('立即播放');
     return FocusRing(
       radius: m.button / 2,
       child: FilledButton.icon(
@@ -1115,7 +1204,7 @@ class _DetailPageState extends State<DetailPage> {
         ),
       ),
       icon: const Icon(Icons.download_rounded),
-      label: const Text('下载选集'),
+      label: Text(zh('下载选集')),
     ),
   );
 
@@ -1148,7 +1237,7 @@ class _DetailPageState extends State<DetailPage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          '选集',
+          zh('选集'),
           style: TextStyle(fontSize: m.section, fontWeight: FontWeight.w700),
         ),
         const SizedBox(width: 8),
@@ -1174,7 +1263,7 @@ class _DetailPageState extends State<DetailPage> {
       if (details.currentIndex case final current?)
         TextButton(
           onPressed: () => _locate(current),
-          child: const Text('定位当前'),
+          child: Text(zh('定位当前')),
         ),
     ],
   );

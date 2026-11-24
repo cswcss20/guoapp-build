@@ -78,6 +78,7 @@ class TelevisionDetail extends StatefulWidget {
     required this.onEpisode,
     required this.onSeason,
     required this.onDescription,
+    this.onTag,
   });
   final DramaDetails details;
   final LocalStore store;
@@ -86,6 +87,7 @@ class TelevisionDetail extends StatefulWidget {
   final ValueChanged<int> onEpisode;
   final ValueChanged<DramaSeason> onSeason;
   final VoidCallback onDescription;
+  final ValueChanged<String>? onTag;
 
   @override
   State<TelevisionDetail> createState() => TelevisionDetailState();
@@ -616,20 +618,25 @@ class TelevisionDetailState extends State<TelevisionDetail> {
                     runSpacing: 8,
                     clipBehavior: Clip.hardEdge,
                     children: [
-                      for (final tag in drama.tags.take(12))
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: .08),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 2,
+                      for (final tag in drama.tags.take(24))
+                        GestureDetector(
+                          onTap: widget.onTag == null
+                              ? null
+                              : () => widget.onTag!(tag),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: .08),
+                              borderRadius: BorderRadius.circular(4),
                             ),
-                            child: Text(
-                              tag,
-                              style: _text(12, 20, const Color(0xFFC9C9D3)),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 2,
+                              ),
+                              child: Text(
+                                tag,
+                                style: _text(12, 20, const Color(0xFFC9C9D3)),
+                              ),
                             ),
                           ),
                         ),

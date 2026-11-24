@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../zh_script.dart';
 import 'focus_ring.dart';
 
 class GroupCard extends StatelessWidget {
@@ -54,8 +55,8 @@ class SettingsTile extends StatelessWidget {
                 ),
                 child: Icon(icon, size: 22, color: colors.onSecondaryContainer),
               ),
-        title: Text(title),
-        subtitle: subtitle == null ? null : Text(subtitle!),
+        title: Text(zh(title)),
+        subtitle: subtitle == null ? null : Text(zh(subtitle!)),
         trailing:
             trailing ??
             (value == null && onTap == null
@@ -66,7 +67,7 @@ class SettingsTile extends StatelessWidget {
                     children: [
                       if (value case final value?)
                         Text(
-                          value,
+                          zh(value),
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: colors.onSurfaceVariant),
                         ),
@@ -108,7 +109,7 @@ class SectionHeader extends StatelessWidget {
             child: Semantics(
               header: true,
               child: Text(
-                title,
+                zh(title),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -119,7 +120,7 @@ class SectionHeader extends StatelessWidget {
           if (action != null)
             FocusRing(
               radius: 999,
-              child: TextButton(onPressed: onAction, child: Text(action!)),
+              child: TextButton(onPressed: onAction, child: Text(zh(action!))),
             ),
         ],
       ),

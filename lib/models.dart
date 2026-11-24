@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'zh_script.dart';
+
 const hongguoSourceId = 'hongguo';
 
 bool validSourceId(String id) => RegExp(r'^[a-z0-9_-]{1,64}$').hasMatch(id);
@@ -171,11 +173,11 @@ class Drama {
   final List<String> tags;
   final String releaseStatus;
   final String badge;
-  String get releaseLabel => switch (releaseStatus) {
+  String get releaseLabel => zh(switch (releaseStatus) {
     'finished' || 'completed' => '已完结',
     'ongoing' => '连载中',
     _ => '状态未知',
-  };
+  });
 
   factory Drama.fromJson(Map<String, dynamic> json) => Drama(
     id: json['id'] as String? ?? '',
@@ -550,4 +552,30 @@ List<Map<String, dynamic>> readJsonList(String? value) {
   } catch (_) {
     return [];
   }
+}
+
+class FavoriteTag {
+  const FavoriteTag({
+    required this.source,
+    required this.tag,
+    required this.addedAt,
+  });
+
+  final String source;
+  final String tag;
+  final int addedAt;
+
+  String get id => '$source:$tag';
+
+  factory FavoriteTag.fromJson(Map<String, dynamic> json) => FavoriteTag(
+    source: (json['source'] as String? ?? '').trim(),
+    tag: (json['tag'] as String? ?? '').trim(),
+    addedAt: intValue(json['addedAt']),
+  );
+
+  Map<String, dynamic> toJson() => {
+    'source': source,
+    'tag': tag,
+    'addedAt': addedAt,
+  };
 }

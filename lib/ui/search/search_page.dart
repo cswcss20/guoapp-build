@@ -8,6 +8,7 @@ import '../../drama_feed.dart';
 import '../../local_store.dart';
 import '../../models.dart';
 import '../../source_catalog.dart';
+import '../../zh_script.dart';
 import '../app_scope.dart';
 import '../detail/detail_page.dart';
 import '../shell/app_shell.dart';
@@ -72,6 +73,52 @@ class _SearchPageState extends State<SearchPage> {
     unawaited(HapticFeedback.selectionClick());
     unawaited(widget.store.forgetSearch(query).catchError((Object _) {}));
   }
+
+  Future<void> _toggleFavoriteTag(String tag) async {
+    final query = tag.trim();
+    if (query.isEmpty) return;
+    unawaited(HapticFeedback.selectionClick());
+    try {
+      final added = await widget.store.toggleFavoriteTag(
+        widget.source.id,
+        query,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            persist: false,
+            content: Text(
+              zh(added ? '已收藏标签「$query」' : '已取消收藏标签「$query」'),
+            ),
+          ),
+        );
+    } catch (failure) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$failure')));
+    }
+  }
+
+  Widget _favoriteTagAction() => ListenableBuilder(
+    listenable: widget.store,
+    builder: (context, _) {
+      final saved = widget.store.isFavoriteTag(widget.source.id, _submitted);
+      return FocusRing(
+        radius: 20,
+        child: IconButton(
+          tooltip: zh(saved ? '取消收藏标签' : '收藏标签'),
+          onPressed: () => _toggleFavoriteTag(_submitted),
+          icon: Icon(
+            saved ? Icons.star_rounded : Icons.star_border_rounded,
+            color: saved ? Theme.of(context).colorScheme.primary : null,
+          ),
+        ),
+      );
+    },
+  );
 
   void _submit(String text) {
     final query = text.trim();
@@ -140,7 +187,13 @@ class _SearchPageState extends State<SearchPage> {
                 televisionInset,
                 0,
               ),
-              child: field,
+              child: Row(
+                spacing: 8,
+                children: [
+                  Expanded(child: field),
+                  if (_submitted.isNotEmpty) _favoriteTagAction(),
+                ],
+              ),
             ),
             Expanded(child: FadeSwitcher(child: _body(context))),
           ],
@@ -150,7 +203,16 @@ class _SearchPageState extends State<SearchPage> {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
-        title: Padding(padding: const EdgeInsets.only(right: 16), child: field),
+        title: Padding(
+          padding: EdgeInsets.only(right: _submitted.isEmpty ? 16 : 4),
+          child: field,
+        ),
+        actions: [
+          if (_submitted.isNotEmpty) ...[
+            _favoriteTagAction(),
+            const SizedBox(width: 4),
+          ],
+        ],
       ),
       body: SafeArea(
         top: false,
@@ -263,12 +325,22 @@ class _SearchPageState extends State<SearchPage> {
     listenable: widget.store,
     builder: (context, _) {
       final recent = widget.store.recentSearches;
-      return FadeSwitcher(child: _recentContent(context, recent));
+      final savedTags = [
+        for (final item in widget.store.favoriteTags)
+          if (item.source == widget.source.id) item,
+      ];
+      return FadeSwitcher(
+        child: _recentContent(context, recent, savedTags),
+      );
     },
   );
 
-  Widget _recentContent(BuildContext context, List<String> recent) {
-    if (recent.isEmpty) {
+  Widget _recentContent(
+    BuildContext context,
+    List<String> recent,
+    List<FavoriteTag> savedTags,
+  ) {
+    if (recent.isEmpty && savedTags.isEmpty) {
       return StatusView(
         key: const ValueKey('empty'),
         title: '在 ${widget.source.name} 中搜索',
@@ -283,52 +355,87 @@ class _SearchPageState extends State<SearchPage> {
           ? const EdgeInsets.fromLTRB(televisionInset, 8, televisionInset, 27)
           : const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                '最近搜索',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+        if (savedTags.isNotEmpty) ...[
+          Text(
+            zh('收藏标签'),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
             ),
-            FocusRing(
-              radius: 999,
-              child: TextButton(
-                onPressed: () => widget.store.clearRecentSearches().catchError(
-                  (Object _) {},
-                ),
-                child: const Text('清空'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        AnimatedSize(
-          duration: Motion.of(context, Motion.medium),
-          curve: Motion.enter,
-          alignment: Alignment.topLeft,
-          child: Wrap(
+          ),
+          const SizedBox(height: 8),
+          Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final query in recent)
+              for (final item in savedTags)
                 FocusRing(
                   radius: 8,
                   child: GestureDetector(
-                    onLongPress: () => _forget(query),
-                    onSecondaryTap: () => _forget(query),
+                    onLongPress: () => _toggleFavoriteTag(item.tag),
+                    onSecondaryTap: () => _toggleFavoriteTag(item.tag),
                     child: ActionChip(
-                      avatar: const Icon(Icons.history_rounded, size: 16),
-                      label: Text(query),
-                      onPressed: () => _submit(query),
+                      avatar: Icon(
+                        Icons.star_rounded,
+                        size: 16,
+                        color: theme.colorScheme.primary,
+                      ),
+                      label: Text(item.tag),
+                      onPressed: () => _submit(item.tag),
                     ),
                   ),
                 ),
             ],
           ),
-        ),
+          if (recent.isNotEmpty) const SizedBox(height: 20),
+        ],
+        if (recent.isNotEmpty) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  zh('最近搜索'),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              FocusRing(
+                radius: 999,
+                child: TextButton(
+                  onPressed: () => widget.store
+                      .clearRecentSearches()
+                      .catchError((Object _) {}),
+                  child: Text(zh('清空')),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          AnimatedSize(
+            duration: Motion.of(context, Motion.medium),
+            curve: Motion.enter,
+            alignment: Alignment.topLeft,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final query in recent)
+                  FocusRing(
+                    radius: 8,
+                    child: GestureDetector(
+                      onLongPress: () => _forget(query),
+                      onSecondaryTap: () => _forget(query),
+                      child: ActionChip(
+                        avatar: const Icon(Icons.history_rounded, size: 16),
+                        label: Text(query),
+                        onPressed: () => _submit(query),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

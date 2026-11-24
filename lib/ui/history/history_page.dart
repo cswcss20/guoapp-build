@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../local_store.dart';
+import '../../zh_script.dart';
 import '../../models.dart';
 import '../../source_modules.dart';
 import '../../watch_history.dart';
@@ -93,9 +94,9 @@ class _HistoryPageState extends State<HistoryPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(clear ? '清空观看记录？' : '删除 ${ids.length} 条观看记录？'),
+        title: Text(zh(clear ? '清空观看记录？' : '删除 ${ids.length} 条观看记录？')),
         content: Text(
-          clear ? '将删除当前列出的 ${ids.length} 条观看记录，追剧不受影响。' : '追剧不受影响。',
+          zh(clear ? '将删除当前列出的 ${ids.length} 条观看记录，追剧不受影响。' : '追剧不受影响。'),
         ),
         actions: [
           FocusRing(
@@ -103,7 +104,7 @@ class _HistoryPageState extends State<HistoryPage> {
             child: TextButton(
               autofocus: true,
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
+              child: Text(zh('取消')),
             ),
           ),
           FocusRing(
@@ -114,7 +115,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 foregroundColor: colors.onError,
               ),
               onPressed: () => Navigator.pop(context, true),
-              child: Text(clear ? '清空' : '删除'),
+              child: Text(zh(clear ? '清空' : '删除')),
             ),
           ),
         ],
@@ -191,13 +192,13 @@ class _HistoryPageState extends State<HistoryPage> {
         ? TextButton(
             focusNode: focusNode,
             onPressed: onPressed,
-            child: Text(label),
+            child: Text(zh(label)),
           )
         : TextButton.icon(
             focusNode: focusNode,
             onPressed: onPressed,
             icon: Icon(icon, size: 18),
-            label: Text(label),
+            label: Text(zh(label)),
           ),
   );
 
@@ -238,7 +239,7 @@ class _HistoryPageState extends State<HistoryPage> {
             ? null
             : () => _remove(selection, clear: false),
         icon: const Icon(Icons.delete_outline_rounded, size: 18),
-        label: const Text('删除'),
+        label: Text(zh('删除')),
       ),
     );
   }
@@ -256,7 +257,7 @@ class _HistoryPageState extends State<HistoryPage> {
       alignment: AlignmentDirectional.centerStart,
       child: Text(
         key: ValueKey(view.selection == null),
-        view.selection == null ? '观看记录' : '已选择 ${view.selection!.length} 部',
+        zh(view.selection == null ? '观看记录' : '已选择 ${view.selection!.length} 部'),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(fontSize: size, fontWeight: FontWeight.w800),
@@ -282,7 +283,7 @@ class _HistoryPageState extends State<HistoryPage> {
     radius: 8,
     child: ChoiceChip(
       key: ValueKey('history-source-$id'),
-      label: Text(label),
+      label: Text(zh(label)),
       showCheckmark: false,
       selected: view.source == id,
       onSelected: (_) => setState(() => _source = id),
@@ -327,7 +328,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 alignment: AlignmentDirectional.centerStart,
                 child: Text(
                   key: ValueKey(selection == null),
-                  selection == null ? '观看记录' : '已选择 ${selection.length} 部',
+                  zh(selection == null ? '观看记录' : '已选择 ${selection.length} 部'),
                 ),
               ),
               actions: [

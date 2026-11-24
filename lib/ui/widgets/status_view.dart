@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../zh_script.dart';
 import 'focus_ring.dart';
 import 'motion/motion_widgets.dart';
 
@@ -52,14 +53,14 @@ class StatusView extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              title,
+              zh(title),
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium,
             ),
             if (message case final message?) ...[
               const SizedBox(height: 8),
               Text(
-                message,
+                zh(message),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -73,7 +74,7 @@ class StatusView extends StatelessWidget {
                 child: FilledButton.tonal(
                   autofocus: autofocus,
                   onPressed: onAction,
-                  child: Text(action),
+                  child: Text(zh(action)),
                 ),
               ),
             ],

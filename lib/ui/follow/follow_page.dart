@@ -5,8 +5,10 @@ import '../../follow_list.dart';
 import '../../local_store.dart';
 import '../../models.dart';
 import '../../source_modules.dart';
+import '../../zh_script.dart';
 import '../app_scope.dart';
 import '../detail/detail_page.dart';
+import '../search/search_page.dart';
 import '../settings/settings_rows.dart';
 import '../shell/app_shell.dart';
 import '../widgets/drama_grid.dart';
@@ -17,11 +19,15 @@ import '../widgets/page_header.dart';
 import '../widgets/search_field.dart';
 import '../widgets/status_view.dart';
 
+enum _FollowTab { dramas, tags }
+
 typedef _View = ({
   List<Drama> follows,
+  List<FavoriteTag> tags,
   List<SourceSite> sources,
   String source,
   List<Drama> shown,
+  List<FavoriteTag> shownTags,
   Set<String>? selection,
 });
 
@@ -44,6 +50,7 @@ class _FollowPageState extends State<FollowPage> {
   final _query = TextEditingController();
   final _editButton = FocusNode();
   final _entered = <Object>{};
+  var _tab = _FollowTab.dramas;
   var _source = '';
   Set<String>? _selection;
 
@@ -65,6 +72,15 @@ class _FollowPageState extends State<FollowPage> {
           widget.onExitUp();
         }
       });
+
+  void _switchTab(_FollowTab next) {
+    if (_tab == next) return;
+    setState(() {
+      _tab = next;
+      _source = '';
+      _selection = null;
+    });
+  }
 
   void _startEditing() {
     setState(() => _selection = {});
@@ -92,21 +108,33 @@ class _FollowPageState extends State<FollowPage> {
     );
   }
 
-  Future<void> _unfollow(Set<String> ids) async {
+  void _openTag(FavoriteTag item) {
+    final site = SourceSite.byId(item.source);
+    if (!site.onlineSearch || !widget.store.allowsSource(site.id)) return;
+    openPage<void>(
+      context,
+      (_) => SearchPage(store: widget.store, source: site, query: item.tag),
+    );
+  }
+
+  Future<void> _removeSelected(Set<String> ids) async {
     if (ids.isEmpty) return;
     final colors = Theme.of(context).colorScheme;
+    final isTags = _tab == _FollowTab.tags;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('取消追剧 ${ids.length} 部？'),
-        content: const Text('观看记录会保留。'),
+        title: Text(
+          zh(isTags ? '取消收藏 ${ids.length} 个标签？' : '取消追剧 ${ids.length} 部？'),
+        ),
+        content: Text(zh(isTags ? '之后仍可随时重新收藏。' : '观看记录会保留。')),
         actions: [
           FocusRing(
             radius: 20,
             child: TextButton(
               autofocus: true,
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
+              child: Text(zh('取消')),
             ),
           ),
           FocusRing(
@@ -117,17 +145,41 @@ class _FollowPageState extends State<FollowPage> {
                 foregroundColor: colors.onError,
               ),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('取消追剧'),
+              child: Text(zh(isTags ? '取消收藏' : '取消追剧')),
             ),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
-    await saveSetting(context, () => widget.store.removeFavorites(ids));
+    await saveSetting(
+      context,
+      () => isTags
+          ? widget.store.removeFavoriteTags(ids)
+          : widget.store.removeFavorites(ids),
+    );
     if (!mounted) return;
     setState(() => _selection = null);
     _keepFocus(widget.entryFocus);
+  }
+
+  static bool _matchesTag(FavoriteTag item, String rawQuery) {
+    final query = rawQuery.trim().toLowerCase();
+    if (query.isEmpty) return true;
+    final sourceName = SourceSite.byId(item.source).name.toLowerCase();
+    return item.tag.toLowerCase().contains(query) ||
+        sourceName.contains(query);
+  }
+
+  static List<SourceSite> _tagSources(List<FavoriteTag> tags) {
+    final seen = <String>{};
+    final list = <SourceSite>[];
+    for (final item in tags) {
+      if (seen.add(item.source)) {
+        list.add(SourceSite.byId(item.source));
+      }
+    }
+    return list;
   }
 
   @override
@@ -135,7 +187,10 @@ class _FollowPageState extends State<FollowPage> {
     listenable: Listenable.merge([widget.store, _query]),
     builder: (context, _) {
       final follows = widget.store.favorites;
-      final sources = followedSources(follows);
+      final tags = widget.store.favoriteTags;
+      final sources = _tab == _FollowTab.tags
+          ? _tagSources(tags)
+          : followedSources(follows);
       final source = sources.any((site) => site.id == _source) ? _source : '';
       final shown = [
         for (final drama in follows)
@@ -143,14 +198,23 @@ class _FollowPageState extends State<FollowPage> {
               matchesFollowTitle(drama, _query.text))
             drama,
       ];
+      final shownTags = [
+        for (final item in tags)
+          if ((source.isEmpty || item.source == source) &&
+              _matchesTag(item, _query.text))
+            item,
+      ];
+      final activeIds = _tab == _FollowTab.tags
+          ? {for (final item in shownTags) item.id}
+          : {for (final drama in shown) drama.id};
       final view = (
         follows: follows,
+        tags: tags,
         sources: sources,
         source: source,
         shown: shown,
-        selection: _selection?.intersection({
-          for (final drama in shown) drama.id,
-        }),
+        shownTags: shownTags,
+        selection: _selection?.intersection(activeIds),
       );
       return PopScope(
         canPop: _selection == null,
@@ -166,18 +230,28 @@ class _FollowPageState extends State<FollowPage> {
     },
   );
 
-  Set<String> _ids(_View view) => {for (final drama in view.shown) drama.id};
+  Set<String> _ids(_View view) => _tab == _FollowTab.tags
+      ? {for (final item in view.shownTags) item.id}
+      : {for (final drama in view.shown) drama.id};
+
+  bool _isEmptyShown(_View view) =>
+      _tab == _FollowTab.tags ? view.shownTags.isEmpty : view.shown.isEmpty;
 
   Widget _search({FocusNode? focusNode}) => SearchField(
-    hint: '搜索追剧',
+    hint: _tab == _FollowTab.tags ? '搜索收藏标签' : '搜索追剧',
     controller: _query,
     focusNode: focusNode,
     onSubmitted: (_) {},
     letterKeyboard: widget.store.televisionKeyboard,
-    matches: (query) async => {
-      for (final drama in widget.store.favorites)
-        if (matchesFollowTitle(drama, query)) drama.title,
-    }.toList(),
+    matches: (query) async => _tab == _FollowTab.tags
+        ? {
+            for (final item in widget.store.favoriteTags)
+              if (_matchesTag(item, query)) item.tag,
+          }.toList()
+        : {
+            for (final drama in widget.store.favorites)
+              if (matchesFollowTitle(drama, query)) drama.title,
+          }.toList(),
   );
 
   Widget _textButton(
@@ -191,19 +265,19 @@ class _FollowPageState extends State<FollowPage> {
         ? TextButton(
             focusNode: focusNode,
             onPressed: onPressed,
-            child: Text(label),
+            child: Text(zh(label)),
           )
         : TextButton.icon(
             focusNode: focusNode,
             onPressed: onPressed,
             icon: Icon(icon, size: 18),
-            label: Text(label),
+            label: Text(zh(label)),
           ),
   );
 
   Widget _editButtonFor(_View view, {bool icon = true}) => _textButton(
     '编辑',
-    view.shown.isEmpty ? null : _startEditing,
+    _isEmptyShown(view) ? null : _startEditing,
     icon: icon ? Icons.check_box_outlined : null,
     focusNode: _editButton,
   );
@@ -217,9 +291,10 @@ class _FollowPageState extends State<FollowPage> {
     );
   }
 
-  Widget _unfollowButton(_View view) {
+  Widget _removeButton(_View view) {
     final colors = Theme.of(context).colorScheme;
     final selection = view.selection!;
+    final isTags = _tab == _FollowTab.tags;
     return FocusRing(
       radius: 20,
       child: FilledButton.icon(
@@ -227,26 +302,66 @@ class _FollowPageState extends State<FollowPage> {
           backgroundColor: colors.error,
           foregroundColor: colors.onError,
         ),
-        onPressed: selection.isEmpty ? null : () => _unfollow(selection),
-        icon: const Icon(Icons.bookmark_remove_outlined, size: 18),
-        label: const Text('取消追剧'),
+        onPressed: selection.isEmpty ? null : () => _removeSelected(selection),
+        icon: Icon(
+          isTags ? Icons.star_outline_rounded : Icons.bookmark_remove_outlined,
+          size: 18,
+        ),
+        label: Text(zh(isTags ? '取消收藏' : '取消追剧')),
       ),
     );
   }
 
   List<Widget> _editActions(_View view) => [
     _selectAll(view),
-    _unfollowButton(view),
+    _removeButton(view),
     _textButton('完成', _finishEditing),
   ];
 
   Widget _title(String text, double size) => Semantics(
     header: true,
     child: Text(
-      text,
+      zh(text),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(fontSize: size, fontWeight: FontWeight.w800),
+    ),
+  );
+
+  Widget _tabSwitch(_View view, {required double inset}) => Padding(
+    padding: EdgeInsets.fromLTRB(inset, 2, inset, 8),
+    child: Row(
+      spacing: 8,
+      children: [
+        FocusRing(
+          radius: 8,
+          child: ChoiceChip(
+            key: const ValueKey('follow-tab-dramas'),
+            label: Text(
+              view.follows.isEmpty
+                  ? zh('追剧')
+                  : '${zh('追剧')} ${view.follows.length}',
+            ),
+            showCheckmark: false,
+            selected: _tab == _FollowTab.dramas,
+            onSelected: (_) => _switchTab(_FollowTab.dramas),
+          ),
+        ),
+        FocusRing(
+          radius: 8,
+          child: ChoiceChip(
+            key: const ValueKey('follow-tab-tags'),
+            label: Text(
+              view.tags.isEmpty
+                  ? zh('收藏标签')
+                  : '${zh('收藏标签')} ${view.tags.length}',
+            ),
+            showCheckmark: false,
+            selected: _tab == _FollowTab.tags,
+            onSelected: (_) => _switchTab(_FollowTab.tags),
+          ),
+        ),
+      ],
     ),
   );
 
@@ -254,7 +369,7 @@ class _FollowPageState extends State<FollowPage> {
     radius: 8,
     child: ChoiceChip(
       key: ValueKey('follow-source-$id'),
-      label: Text(label),
+      label: Text(zh(label)),
       showCheckmark: false,
       selected: view.source == id,
       onSelected: (_) => setState(() => _source = id),
@@ -270,15 +385,18 @@ class _FollowPageState extends State<FollowPage> {
     if (scroll) {
       return SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.fromLTRB(inset, 4, inset, 8),
+        padding: EdgeInsets.fromLTRB(inset, 0, inset, 8),
         child: Row(spacing: 8, children: chips),
       );
     }
     return Padding(
-      padding: EdgeInsets.fromLTRB(inset, 4, inset, 8),
+      padding: EdgeInsets.fromLTRB(inset, 0, inset, 8),
       child: Wrap(spacing: 8, runSpacing: 8, children: chips),
     );
   }
+
+  String _selectionTitle(int count) =>
+      _tab == _FollowTab.tags ? '已选择 $count 个标签' : '已选择 $count 部';
 
   Widget _phone(BuildContext context, _View view) {
     final selection = view.selection;
@@ -299,13 +417,14 @@ class _FollowPageState extends State<FollowPage> {
                     )
                   : PageHeader(
                       key: const ValueKey(true),
-                      title: '已选择 ${selection.length} 部',
+                      title: _selectionTitle(selection.length),
                       actions: [
                         _selectAll(view),
                         _textButton('完成', _finishEditing),
                       ],
                     ),
             ),
+            _tabSwitch(view, inset: 16),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: _search(),
@@ -318,7 +437,7 @@ class _FollowPageState extends State<FollowPage> {
           ? null
           : Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: SizedBox(height: 48, child: _unfollowButton(view)),
+              child: SizedBox(height: 48, child: _removeButton(view)),
             ),
     );
   }
@@ -361,13 +480,13 @@ class _FollowPageState extends State<FollowPage> {
                           spacing: 8,
                           children: [
                             IconButton(
-                              tooltip: '退出编辑',
+                              tooltip: zh('退出编辑'),
                               onPressed: _finishEditing,
                               icon: const Icon(Icons.close_rounded),
                             ),
                             Expanded(
                               child: _title(
-                                '已选择 ${view.selection!.length} 部',
+                                _selectionTitle(view.selection!.length),
                                 28,
                               ),
                             ),
@@ -378,6 +497,7 @@ class _FollowPageState extends State<FollowPage> {
               ),
             ),
           ),
+          _tabSwitch(view, inset: 24),
           ?_sources(view, inset: 24),
         ],
       ),
@@ -407,7 +527,10 @@ class _FollowPageState extends State<FollowPage> {
           inset: televisionInset,
           top: 14,
           header: [
-            if (view.follows.isNotEmpty || view.selection != null)
+            _tabSwitch(view, inset: televisionInset),
+            if (view.follows.isNotEmpty ||
+                view.tags.isNotEmpty ||
+                view.selection != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   televisionInset,
@@ -426,7 +549,7 @@ class _FollowPageState extends State<FollowPage> {
                               SizedBox(
                                 width: 260,
                                 child: _search(
-                                  focusNode: view.shown.isEmpty
+                                  focusNode: _isEmptyShown(view)
                                       ? widget.entryFocus
                                       : null,
                                 ),
@@ -437,7 +560,7 @@ class _FollowPageState extends State<FollowPage> {
                           : [
                               Expanded(
                                 child: _title(
-                                  '已选择 ${view.selection!.length} 部',
+                                  _selectionTitle(view.selection!.length),
                                   24,
                                 ),
                               ),
@@ -469,139 +592,301 @@ class _FollowPageState extends State<FollowPage> {
     }
   }
 
+  Widget _tagCard(
+    BuildContext context,
+    FavoriteTag item,
+    Set<String>? selection, {
+    FocusNode? focusNode,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    final selected = selection?.contains(item.id) ?? false;
+    final sourceName = SourceSite.byId(item.source).name;
+    final isActress = RegExp(
+      r'^(?:女优|女優|演员|演員|actress)\s*[:：]',
+      caseSensitive: false,
+    ).hasMatch(item.tag);
+    return FocusRing(
+      radius: 14,
+      child: Material(
+        color: selected
+            ? colors.primaryContainer
+            : colors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          focusNode: focusNode,
+          onTap: selection == null
+              ? () => _openTag(item)
+              : () => _toggle(item.id),
+          onLongPress: selection == null
+              ? () => setState(() => _selection = {item.id})
+              : null,
+          onSecondaryTap: selection == null
+              ? () => setState(() => _selection = {item.id})
+              : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 10,
+              children: [
+                if (selection != null)
+                  Icon(
+                    selected
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    size: 20,
+                    color: selected
+                        ? colors.onPrimaryContainer
+                        : colors.onSurfaceVariant,
+                  )
+                else
+                  Icon(
+                    isActress
+                        ? Icons.person_rounded
+                        : Icons.local_offer_rounded,
+                    size: 18,
+                    color: colors.primary,
+                  ),
+                Flexible(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 2,
+                    children: [
+                      Text(
+                        item.tag,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: selected
+                              ? colors.onPrimaryContainer
+                              : colors.onSurface,
+                        ),
+                      ),
+                      Text(
+                        sourceName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: selected
+                              ? colors.onPrimaryContainer.withValues(alpha: 0.8)
+                              : colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (selection == null)
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: colors.onSurfaceVariant,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _content(
     BuildContext context,
     _View view, {
     required double inset,
     double top = 0,
     required List<Widget> header,
-  }) => LayoutBuilder(
-    builder: (context, constraints) {
-      final width = constraints.maxWidth - inset * 2;
-      final (columns, gap, runGap) = _grid(context, width);
-      final tile = (width - gap * (columns - 1)) / columns;
-      final updated = [
-        for (final drama in view.shown)
-          if (widget.store.following(drama.id)?.hasUpdates ?? false) drama,
-      ];
-      final rest = [
-        for (final drama in view.shown)
-          if (!updated.contains(drama)) drama,
-      ];
-      final sections = <(String?, List<Drama>)>[
-        if (updated.isNotEmpty) ('有更新', updated),
-        if (rest.isNotEmpty) (updated.isEmpty ? null : '其他追剧', rest),
-      ];
-      final first = view.shown.isEmpty
-          ? null
-          : (updated.firstOrNull ?? rest.first);
+  }) {
+    if (_tab == _FollowTab.tags) {
       return CustomScrollView(
         slivers: [
           SliverPadding(
             padding: EdgeInsets.only(top: top),
             sliver: SliverList.list(children: header),
           ),
-          if (view.shown.isEmpty)
+          if (view.shownTags.isEmpty)
             SliverFillRemaining(
               hasScrollBody: false,
               child: FadeSwitcher(
                 scale: true,
                 child: StatusView(
-                  key: ValueKey(view.follows.isEmpty),
-                  title: view.follows.isEmpty ? '还没有追剧' : '没有匹配的追剧',
-                  message: view.follows.isEmpty
-                      ? missingSourceHint(
-                          widget.store.missingSourceRecords().follows,
-                          '部追剧',
-                        )
+                  key: ValueKey(('tags-empty', view.tags.isEmpty)),
+                  title: view.tags.isEmpty ? '还没有收藏标签' : '没有匹配的收藏标签',
+                  message: view.tags.isEmpty
+                      ? '在详情页长按或右键点击标签，或在搜索结果页点右上角星标即可收藏。'
                       : null,
-                  icon: view.follows.isEmpty
-                      ? Icons.bookmark_border_rounded
+                  icon: view.tags.isEmpty
+                      ? Icons.star_border_rounded
                       : Icons.search_off_rounded,
                 ),
               ),
             )
           else
-            for (final (label, dramas) in sections) ...[
-              if (label != null)
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(inset + 4, 12, inset, 10),
-                  sliver: SliverToBoxAdapter(
-                    child: Semantics(
-                      header: true,
-                      child: Text.rich(
-                        TextSpan(
-                          text: label,
-                          children: [
-                            TextSpan(
-                              text: '  ${dramas.length}',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                inset,
+                12,
+                inset,
+                AppScope.of(context).television ? 27 : 32,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    for (final (index, item) in view.shownTags.indexed)
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          minWidth: 150,
+                          maxWidth: 320,
                         ),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                        child: _tagCard(
+                          context,
+                          item,
+                          view.selection,
+                          focusNode: index == 0 ? widget.entryFocus : null,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth - inset * 2;
+        final (columns, gap, runGap) = _grid(context, width);
+        final tile = (width - gap * (columns - 1)) / columns;
+        final updated = [
+          for (final drama in view.shown)
+            if (widget.store.following(drama.id)?.hasUpdates ?? false) drama,
+        ];
+        final rest = [
+          for (final drama in view.shown)
+            if (!updated.contains(drama)) drama,
+        ];
+        final sections = <(String?, List<Drama>)>[
+          if (updated.isNotEmpty) ('有更新', updated),
+          if (rest.isNotEmpty) (updated.isEmpty ? null : '其他追剧', rest),
+        ];
+        final first = view.shown.isEmpty
+            ? null
+            : (updated.firstOrNull ?? rest.first);
+        return CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.only(top: top),
+              sliver: SliverList.list(children: header),
+            ),
+            if (view.shown.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: FadeSwitcher(
+                  scale: true,
+                  child: StatusView(
+                    key: ValueKey(view.follows.isEmpty),
+                    title: view.follows.isEmpty ? '还没有追剧' : '没有匹配的追剧',
+                    message: view.follows.isEmpty
+                        ? missingSourceHint(
+                            widget.store.missingSourceRecords().follows,
+                            '部追剧',
+                          )
+                        : null,
+                    icon: view.follows.isEmpty
+                        ? Icons.bookmark_border_rounded
+                        : Icons.search_off_rounded,
+                  ),
+                ),
+              )
+            else
+              for (final (label, dramas) in sections) ...[
+                if (label != null)
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(inset + 4, 12, inset, 10),
+                    sliver: SliverToBoxAdapter(
+                      child: Semantics(
+                        header: true,
+                        child: Text.rich(
+                          TextSpan(
+                            text: zh(label),
+                            children: [
+                              TextSpan(
+                                text: '  ${dramas.length}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  inset,
-                  label == null ? 12 : 0,
-                  inset,
-                  0,
-                ),
-                sliver: SliverGrid.builder(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: columns,
-                    crossAxisSpacing: gap,
-                    mainAxisSpacing: runGap,
-                    mainAxisExtent: ProgressPoster.extentFor(context, tile),
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    inset,
+                    label == null ? 12 : 0,
+                    inset,
+                    0,
                   ),
-                  itemCount: dramas.length,
-                  itemBuilder: (context, index) {
-                    final drama = dramas[index];
-                    return Focus(
-                      key: ValueKey(drama.id),
-                      canRequestFocus: false,
-                      skipTraversal: true,
-                      onKeyEvent: (_, event) =>
-                          wrapGridRow(index, columns, dramas.length, event),
-                      child: EnterOnce(
-                        id: drama.id,
-                        played: _entered,
-                        index: index,
-                        child: _poster(
-                          context,
-                          drama,
-                          tile,
-                          view.selection,
-                          focusNode: drama == first ? widget.entryFocus : null,
+                  sliver: SliverGrid.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      crossAxisSpacing: gap,
+                      mainAxisSpacing: runGap,
+                      mainAxisExtent: ProgressPoster.extentFor(context, tile),
+                    ),
+                    itemCount: dramas.length,
+                    itemBuilder: (context, index) {
+                      final drama = dramas[index];
+                      return Focus(
+                        key: ValueKey(drama.id),
+                        canRequestFocus: false,
+                        skipTraversal: true,
+                        onKeyEvent: (_, event) =>
+                            wrapGridRow(index, columns, dramas.length, event),
+                        child: EnterOnce(
+                          id: drama.id,
+                          played: _entered,
+                          index: index,
+                          child: _poster(
+                            context,
+                            drama,
+                            tile,
+                            view.selection,
+                            focusNode:
+                                drama == first ? widget.entryFocus : null,
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
+              ],
+            SliverPadding(
+              padding: EdgeInsets.only(
+                bottom: AppScope.of(context).television ? 27 : 32,
               ),
-            ],
-          SliverPadding(
-            padding: EdgeInsets.only(
-              bottom: AppScope.of(context).television ? 27 : 32,
             ),
-          ),
-        ],
-      );
-    },
-  );
+          ],
+        );
+      },
+    );
+  }
 
   Widget _poster(
     BuildContext context,
@@ -615,14 +900,14 @@ class _FollowPageState extends State<FollowPage> {
     final total = drama.episodes;
     final String caption;
     if (watch == null) {
-      caption = total > 0 ? '未观看 · 共 $total 集' : '未观看';
+      caption = total > 0 ? zh('未观看 · 共 $total 集') : zh('未观看');
     } else if (total > 0 && watch.episode >= total && watch.finished) {
-      caption = '已看完';
+      caption = zh('已看完');
     } else {
-      final long = '看到第 ${watch.episode} 集 / 共 $total 集';
+      final long = zh('看到第 ${watch.episode} 集 / 共 $total 集');
       caption = total > 0 && _fits(context, long, width)
           ? long
-          : '看到第 ${watch.episode} 集';
+          : zh('看到第 ${watch.episode} 集');
     }
     return ProgressPoster(
       drama: drama,
@@ -632,7 +917,7 @@ class _FollowPageState extends State<FollowPage> {
       caption: caption,
       tag: SourceSite.byId(drama.source).name,
       badge: state != null && state.hasUpdates
-          ? '${state.newEpisodes} 集更新'
+          ? zh('${state.newEpisodes} 集更新')
           : null,
       selected: selection?.contains(drama.id),
       onTap: selection == null ? () => _open(drama) : () => _toggle(drama.id),

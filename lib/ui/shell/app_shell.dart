@@ -10,6 +10,7 @@ import '../../download_overview.dart';
 import '../../follow_updater.dart';
 import '../../local_store.dart';
 import '../../models.dart';
+import '../../zh_script.dart';
 import '../app_scope.dart';
 import '../explore/explore_page.dart';
 import '../explore/source_actions.dart';
@@ -378,7 +379,7 @@ class _AppShellState extends State<AppShell> {
                             key: ValueKey('nav-${tab.name}'),
                             icon: _badged(tab, Icon(tab.icon)),
                             selectedIcon: _badged(tab, Icon(tab.selectedIcon)),
-                            label: tab.label,
+                            label: zh(tab.label),
                           ),
                       ],
                     ),
@@ -721,7 +722,7 @@ class _SideItem extends StatelessWidget {
                               right: metrics.labelPadding.right,
                             ),
                             child: Text(
-                              tab.label,
+                              zh(tab.label),
                               maxLines: 1,
                               softWrap: false,
                               overflow: TextOverflow.ellipsis,
@@ -742,7 +743,7 @@ class _SideItem extends StatelessWidget {
       selected: selected,
       child: FocusRing(
         radius: metrics.itemHeight / 2,
-        child: expanded ? item : Tooltip(message: tab.label, child: item),
+        child: expanded ? item : Tooltip(message: zh(tab.label), child: item),
       ),
     );
   }
@@ -808,7 +809,7 @@ class _TelevisionTab extends StatelessWidget {
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 18),
             alignment: Alignment.center,
-            child: Text(tab.label),
+            child: Text(zh(tab.label)),
           ),
         ),
       ),

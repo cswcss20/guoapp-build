@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../zh_script.dart';
 import '../app_scope.dart';
 import '../widgets/focus_ring.dart';
 import '../widgets/group_card.dart';
@@ -31,7 +32,7 @@ Future<T?> showOptionDialog<T>(
 }) => showDialog<T>(
   context: context,
   builder: (context) => SimpleDialog(
-    title: Text(title),
+    title: Text(zh(title)),
     children: [
       for (final option in options.entries)
         TileFocus(
@@ -40,7 +41,7 @@ Future<T?> showOptionDialog<T>(
             contentPadding: const EdgeInsets.symmetric(horizontal: 24),
             autofocus: option.key == selected,
             selected: option.key == selected,
-            title: Text(option.value),
+            title: Text(zh(option.value)),
             trailing: option.key == selected
                 ? const Icon(Icons.check_rounded)
                 : null,
@@ -84,8 +85,8 @@ class SwitchTile extends StatelessWidget {
     builder: (focusNode) => SwitchListTile(
       focusNode: focusNode,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      title: Text(title),
-      subtitle: subtitle == null ? null : Text(subtitle!),
+      title: Text(zh(title)),
+      subtitle: subtitle == null ? null : Text(zh(subtitle!)),
       value: value,
       onChanged: onChanged,
     ),
@@ -153,7 +154,7 @@ class ValueTile<T> extends StatelessWidget {
                 spacing: 4,
                 children: [
                   Text(
-                    label,
+                    zh(label),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: enabled
                           ? colors.onSurface
@@ -215,7 +216,7 @@ class SettingsGroupItem extends StatelessWidget {
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 20),
           alignment: Alignment.centerLeft,
-          child: Text(label),
+          child: Text(zh(label)),
         ),
       ),
     );

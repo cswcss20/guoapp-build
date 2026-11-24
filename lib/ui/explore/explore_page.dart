@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../drama_feed.dart';
 import '../../explore_feed.dart';
 import '../../local_store.dart';
+import '../../zh_script.dart';
 import '../../models.dart';
 import '../app_scope.dart';
 import '../cover_blur.dart';
@@ -226,8 +227,8 @@ class ExplorePageState extends State<ExplorePage> {
                                 ? Icons.visibility_off_rounded
                                 : Icons.visibility_rounded,
                             tooltip: blur.mode != CoverBlur.off
-                                ? '显示封面'
-                                : '模糊封面',
+                                ? zh('显示封面')
+                                : zh('模糊封面'),
                             onPressed: blur.onToggle,
                           ),
                     ],
@@ -235,7 +236,7 @@ class ExplorePageState extends State<ExplorePage> {
                       if (desktop)
                         BarButton(
                           icon: Icons.refresh_rounded,
-                          tooltip: '刷新',
+                          tooltip: zh('刷新'),
                           onPressed: explore.refresh,
                         ),
                     ],
@@ -553,12 +554,12 @@ class ExplorePageState extends State<ExplorePage> {
       return ExploreHero(
         key: ValueKey(('resume', drama.id)),
         drama: drama,
-        kicker: '继续观看',
+        kicker: zh('继续观看'),
         meta: total > 0
             ? '看到第 ${entry.episode} 集 · 共 $total 集'
             : '看到第 ${entry.episode} 集',
         progress: total > 0 ? entry.episode / total : null,
-        action: '继续第 $next 集',
+        action: zh('继续第 $next 集'),
         onPlay: () => _open(drama, autoplay: true),
         onDetail: () => _open(drama),
       );
@@ -567,12 +568,12 @@ class ExplorePageState extends State<ExplorePage> {
       return ExploreHero(
         key: ValueKey(('featured', drama.id)),
         drama: drama,
-        kicker: '今日推荐',
+        kicker: zh('今日推荐'),
         meta: [
           if (drama.category.isNotEmpty) drama.category,
           if (drama.episodes > 0) '共 ${drama.episodes} 集',
         ].join(' · '),
-        action: '立即观看',
+        action: zh('立即观看'),
         onPlay: () => _open(drama, autoplay: true),
         onDetail: () => _open(drama),
       );

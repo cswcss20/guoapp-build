@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../zh_script.dart';
 import '../app_scope.dart';
 
 class PageHeader extends StatelessWidget {
@@ -18,7 +19,7 @@ class PageHeader extends StatelessWidget {
             child: Semantics(
               header: true,
               child: Text(
-                title,
+                zh(title),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
