@@ -22,8 +22,8 @@ const (
 
 var (
 	moduleIndexAddresses = []string{
-		"https://raw.githubusercontent.com/cswcss20/guoapp/main/module-store/index.json",
-		"https://cdn.jsdelivr.net/gh/cswcss20/guoapp@main/module-store/index.json",
+		"https://raw.githubusercontent.com/cswcss20/hopeapp/main/module-store/index.json",
+		"https://cdn.jsdelivr.net/gh/cswcss20/hopeapp@main/module-store/index.json",
 	}
 	moduleFileAddresses = []string{
 		"https://raw.githubusercontent.com/%s/%s/%s",
