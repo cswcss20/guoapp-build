@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core_bridge.dart';
 import '../../models.dart';
 import '../../sorani_account.dart';
+import '../../zh_script.dart';
 import '../app_scope.dart';
 import '../widgets/focus_ring.dart';
 import '../widgets/form_text_field.dart';
@@ -90,7 +91,7 @@ class _SoraniAccountButtonState extends State<SoraniAccountButton> {
         style: widget.style,
         onPressed: widget.admin && _account != null && !_busy ? _toggle : null,
         icon: Icon(loggedIn ? Icons.logout_rounded : Icons.login_rounded),
-        label: Text(loggedIn ? '退出登录' : '登录'),
+        label: Text(zh(loggedIn ? '退出登录' : '登录')),
       ),
     );
   }
@@ -123,7 +124,7 @@ class _SoraniLoginDialogState extends State<_SoraniLoginDialog> {
 
   void _next() {
     if (_identifier.text.trim().isEmpty || _password.text.isEmpty) {
-      setState(() => _error = '请输入用户名或邮箱和密码');
+      setState(() => _error = zh('请输入用户名或邮箱和密码'));
       return;
     }
     setState(() {
@@ -181,7 +182,7 @@ class _SoraniLoginDialogState extends State<_SoraniLoginDialog> {
     if (mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('无法打开浏览器，链接已复制')));
+      ).showSnackBar(SnackBar(content: Text(zh('无法打开浏览器，链接已复制'))));
     }
   }
 
@@ -195,7 +196,7 @@ class _SoraniLoginDialogState extends State<_SoraniLoginDialog> {
         autofocus: true,
         maxLength: 128,
         onSubmitted: (_) => _passwordFocus.requestFocus(),
-        decoration: const InputDecoration(labelText: '用户名或邮箱'),
+        decoration: InputDecoration(labelText: zh('用户名或邮箱')),
       ),
       FormTextField(
         controller: _password,
@@ -203,7 +204,7 @@ class _SoraniLoginDialogState extends State<_SoraniLoginDialog> {
         obscure: true,
         maxLength: 128,
         onSubmitted: (_) => _next(),
-        decoration: InputDecoration(labelText: '密码', errorText: _error),
+        decoration: InputDecoration(labelText: zh('密码'), errorText: _error),
       ),
       Align(
         alignment: Alignment.centerLeft,
@@ -211,7 +212,7 @@ class _SoraniLoginDialogState extends State<_SoraniLoginDialog> {
           radius: 20,
           child: TextButton(
             onPressed: _register,
-            child: const Text('没有账号？在浏览器中注册'),
+            child: Text(zh('没有账号？在浏览器中注册')),
           ),
         ),
       ),
@@ -226,7 +227,7 @@ class _SoraniLoginDialogState extends State<_SoraniLoginDialog> {
       mainAxisSize: MainAxisSize.min,
       spacing: 12,
       children: [
-        Text(television ? '按左右方向键移动拼图块，对齐后按确定键' : '拖动下方滑块，让拼图块与缺口重合'),
+        Text(zh(television ? '按左右方向键移动拼图块，对齐后按确定键' : '拖动下方滑块，让拼图块与缺口重合')),
         if (captcha == null && error == null)
           const SizedBox(
             height: 180,
@@ -250,7 +251,7 @@ class _SoraniLoginDialogState extends State<_SoraniLoginDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(_verifying ? '安全验证' : '登录青空'),
+    title: Text(zh(_verifying ? '安全验证' : '登录青空')),
     content: SizedBox(
       width: 352,
       child: SingleChildScrollView(
@@ -269,7 +270,7 @@ class _SoraniLoginDialogState extends State<_SoraniLoginDialog> {
                   _error = null;
                 })
               : () => Navigator.pop(context),
-          child: Text(_verifying ? '返回' : '取消'),
+          child: Text(zh(_verifying ? '返回' : '取消')),
         ),
       ),
       if (_verifying)
@@ -277,13 +278,13 @@ class _SoraniLoginDialogState extends State<_SoraniLoginDialog> {
           radius: 20,
           child: TextButton(
             onPressed: _busy ? null : _reload,
-            child: const Text('换一张'),
+            child: Text(zh('换一张')),
           ),
         )
       else
         FocusRing(
           radius: 20,
-          child: FilledButton(onPressed: _next, child: const Text('下一步')),
+          child: FilledButton(onPressed: _next, child: Text(zh('下一步'))),
         ),
     ],
   );

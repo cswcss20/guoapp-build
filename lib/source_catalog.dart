@@ -89,6 +89,7 @@ class SourceCatalog {
     int page = 1,
     String lane = '',
     bool force = false,
+    Map<String, String> filters = const {},
   }) async {
     final result = await repository.catalog(
       source.id,
@@ -96,9 +97,13 @@ class SourceCatalog {
       page: page,
       lane: lane,
       force: force,
+      filters: filters,
     );
     return _within(category, result);
   }
+
+  Future<List<CatalogFilterGroup>> filters(CatalogCategory category) =>
+      repository.catalogFilters(source.id, category: _request(category));
 
   Future<CatalogPage> recommendations({
     bool more = false,

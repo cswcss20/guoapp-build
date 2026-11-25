@@ -17,6 +17,7 @@ import '../widgets/bar_button.dart';
 import '../widgets/category_tabs.dart';
 import '../widgets/choice_panel.dart';
 import '../widgets/drama_grid.dart';
+import '../widgets/filter_bar.dart';
 import '../widgets/follow_button.dart';
 import '../widgets/motion/motion_widgets.dart';
 import '../widgets/page_header.dart';
@@ -386,7 +387,14 @@ class ExplorePageState extends State<ExplorePage> {
     final hero = _hero(explore, tab);
     final items = explore.itemsIn(tab);
     if (feed.items.isEmpty) {
-      return FadeSwitcher(child: _status(feed, inset));
+      final bar = _filterBar(explore, tab, inset);
+      if (bar == null) return FadeSwitcher(child: _status(feed, inset));
+      return Column(
+        children: [
+          bar,
+          Expanded(child: FadeSwitcher(child: _status(feed, inset))),
+        ],
+      );
     }
     final phone = AppScope.formFactorOf(context) == FormFactor.phone;
     final desktop = AppScope.formFactorOf(context) == FormFactor.window;
@@ -405,6 +413,20 @@ class ExplorePageState extends State<ExplorePage> {
         desktop,
         scroll,
         refreshKey,
+      ),
+    );
+  }
+
+  Widget? _filterBar(ExploreFeed explore, CatalogCategory tab, double inset) {
+    final groups = explore.filterGroupsIn(tab);
+    if (groups.isEmpty) return null;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(inset, 12, inset, 0),
+      child: FilterBar(
+        groups: groups,
+        picks: explore.filterPicksIn(tab),
+        onPick: (groupId, optionId) =>
+            explore.setFilterPick(tab, groupId, optionId),
       ),
     );
   }
@@ -484,6 +506,8 @@ class ExplorePageState extends State<ExplorePage> {
                       ),
                     ),
             ),
+            if (_filterBar(explore, tab, inset) case final bar?)
+              SliverToBoxAdapter(child: bar),
             SliverPadding(
               padding: EdgeInsets.fromLTRB(inset, desktop ? 20 : 16, inset, 0),
               sliver: DramaSliverGrid(

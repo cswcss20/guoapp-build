@@ -8,6 +8,7 @@ import '../../local_store.dart';
 import '../../models.dart';
 import '../../playback_preferences.dart';
 import '../../playback_session.dart';
+import '../../zh_script.dart';
 import '../app_scope.dart';
 import '../downloads/download_actions.dart';
 import '../downloads/download_picker_page.dart';
@@ -102,7 +103,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('播放偏好未能保存，请重试')));
+    ).showSnackBar(SnackBar(content: Text(zh('播放偏好未能保存，请重试'))));
   }
 
   Future<void> _change(Future<void> Function() change) async {
@@ -165,7 +166,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
       if (!await _session.playSeason(season) && mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('${season.label}切换失败，请稍后重试')));
+        ).showSnackBar(SnackBar(content: Text('${season.label}${zh('切换失败，请稍后重试')}')));
       }
     } else {
       await _openEpisodes();
@@ -208,11 +209,11 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
       children: [
         SheetHeader(
           children: [
-            Expanded(child: Text(title, style: sheetTitle)),
+            Expanded(child: Text(zh(title), style: sheetTitle)),
             IconButton(
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.close_rounded),
-              tooltip: '关闭',
+              tooltip: zh('关闭'),
             ),
           ],
         ),
@@ -224,7 +225,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
             children: [
               for (final choice in choices)
                 ChoiceChip(
-                  label: Text(choice.label),
+                  label: Text(zh(choice.label)),
                   selected: choice.selected,
                   showCheckmark: false,
                   shape: const StadiumBorder(),
@@ -356,7 +357,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
           onPressed: () => unawaited(Navigator.maybePop(context)),
           icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 32),
           color: Colors.white,
-          tooltip: '返回',
+          tooltip: zh('返回'),
         ),
         Expanded(
           child: Text(
@@ -395,7 +396,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
               ),
               TextButton(
                 onPressed: _session.saveProgress,
-                child: const Text('重试保存'),
+                child: Text(zh('重试保存')),
               ),
             ],
           ),
@@ -624,7 +625,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
           icon: const Icon(Icons.skip_previous_rounded, size: 40),
           color: Colors.white,
           disabledColor: Colors.white38,
-          tooltip: '上一集',
+          tooltip: zh('上一集'),
         ),
         SizedBox.square(
           dimension: 72,
@@ -645,7 +646,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
                     size: 60,
                   ),
                   color: Colors.white,
-                  tooltip: session.paused ? '播放' : '暂停',
+                  tooltip: zh(session.paused ? '播放' : '暂停'),
                 ),
         ),
         IconButton(
@@ -653,13 +654,13 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
           icon: const Icon(Icons.skip_next_rounded, size: 40),
           color: Colors.white,
           disabledColor: Colors.white38,
-          tooltip: '下一集',
+          tooltip: zh('下一集'),
         ),
         IconButton(
           onPressed: () => unawaited(_openEpisodes()),
           icon: const Icon(Icons.queue_music_rounded, size: 28),
           color: Colors.white,
-          tooltip: '选集',
+          tooltip: zh('选集'),
         ),
       ],
     );
@@ -676,27 +677,27 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
           onPressed: () => unawaited(_openSleep()),
           icon: Icon(sleeping ? Icons.bedtime_rounded : Icons.bedtime_outlined),
           color: sleeping ? Theme.of(context).colorScheme.primary : idle,
-          tooltip: sleepTimerLabel(session),
+          tooltip: zh(sleepTimerLabel(session)),
         ),
         if (_canDownload)
           IconButton(
             onPressed: _openDownloads,
             icon: const Icon(Icons.download_rounded),
             color: idle,
-            tooltip: '下载选集',
+            tooltip: zh('下载选集'),
           ),
         if (castSupported)
           IconButton(
             onPressed: () => unawaited(startCast(context, session)),
             icon: const Icon(Icons.cast_rounded),
             color: idle,
-            tooltip: '投屏',
+            tooltip: zh('投屏'),
           ),
         IconButton(
           onPressed: () => unawaited(_openSettings()),
           icon: const Icon(Icons.more_horiz_rounded),
           color: idle,
-          tooltip: '播放设置',
+          tooltip: zh('播放设置'),
         ),
       ],
     );

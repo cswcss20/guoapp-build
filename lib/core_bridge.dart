@@ -167,6 +167,10 @@ abstract class AppRepository {
     String source, {
     bool force = false,
   }) async => const [CatalogCategory.all];
+  Future<List<CatalogFilterGroup>> catalogFilters(
+    String source, {
+    String category = '',
+  }) async => const [];
   bool get supportsSourceManagement => false;
   Future<List<SourceModule>> modules() async => const [];
   Future<ModuleStore> moduleIndex() async => throw AppFailure('当前环境不支持模块商店');
@@ -259,6 +263,7 @@ abstract class AppRepository {
     String category = '',
     String lane = '',
     bool force = false,
+    Map<String, String> filters = const {},
   });
   Future<CatalogPage> cached(String source, {String category = ''});
   Future<String> cover(Drama drama, {bool force = false});
@@ -969,6 +974,22 @@ class NativeRepository extends AppRepository {
   }
 
   @override
+  Future<List<CatalogFilterGroup>> catalogFilters(
+    String source, {
+    String category = '',
+  }) async {
+    final result = await _read('filters-$source-$category', {
+      'action': 'filters',
+      'source': source,
+      'category': category,
+    });
+    return [
+      for (final row in result['items'] as List? ?? const [])
+        CatalogFilterGroup.fromJson(Map<String, dynamic>.from(row as Map)),
+    ];
+  }
+
+  @override
   Future<CatalogPage> catalog(
     String source, {
     int page = 1,
@@ -976,13 +997,17 @@ class NativeRepository extends AppRepository {
     String category = '',
     String lane = '',
     bool force = false,
+    Map<String, String> filters = const {},
   }) async => CatalogPage.fromJson(
     await _read(
-      switch ((query.isEmpty, lane.isEmpty)) {
-        (false, _) => 'catalog-$source-search',
-        (true, true) => 'catalog-$source',
-        (true, false) => 'catalog-$source-$lane',
-      },
+      (switch ((query.isEmpty, lane.isEmpty)) {
+            (false, _) => 'catalog-$source-search',
+            (true, true) => 'catalog-$source',
+            (true, false) => 'catalog-$source-$lane',
+          }) +
+          (filters.isEmpty
+              ? ''
+              : '-f${filters.entries.map((entry) => '${entry.key}=${entry.value}').join('&')}'),
       {
         'action': 'catalog',
         'source': source,
@@ -990,6 +1015,7 @@ class NativeRepository extends AppRepository {
         'query': query,
         'category': category,
         'force': force,
+        if (filters.isNotEmpty) 'filters': filters,
       },
     ),
   );

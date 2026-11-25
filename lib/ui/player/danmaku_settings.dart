@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../catalog_sort.dart';
 import '../../playback_preferences.dart';
 import '../../playback_session.dart';
+import '../../zh_script.dart';
 import '../widgets/focus_ring.dart';
 import '../widgets/form_text_field.dart';
 import '../widgets/slider_tile.dart';
@@ -48,8 +49,8 @@ class DanmakuSettings extends StatelessWidget {
   double get _shadow => _preferences.danmakuShadow;
 
   Widget _scaleTile() => SliderTile(
-    title: '字号',
-    subtitle: '相对默认字号的比例',
+    title: zh('字号'),
+    subtitle: zh('相对默认字号的比例'),
     value: _scale,
     min: danmakuScaleMin,
     max: danmakuScaleMax,
@@ -61,8 +62,8 @@ class DanmakuSettings extends StatelessWidget {
   );
 
   Widget _opacityTile() => SliderTile(
-    title: '透明度',
-    subtitle: '调低后弹幕更透，不挡画面',
+    title: zh('透明度'),
+    subtitle: zh('调低后弹幕更透，不挡画面'),
     value: _opacity,
     min: .1,
     max: 1,
@@ -74,34 +75,34 @@ class DanmakuSettings extends StatelessWidget {
   );
 
   Widget _strokeTile() => SliderTile(
-    title: '描边',
-    subtitle: _stroke == 0 ? '关闭' : '描边越粗字越突出',
+    title: zh('描边'),
+    subtitle: zh(_stroke == 0 ? '关闭' : '描边越粗字越突出'),
     value: _stroke,
     min: danmakuStrokeMin,
     max: danmakuStrokeMax,
     divisions: 12,
-    label: (value) => value == 0 ? '关闭' : value.toStringAsFixed(1),
+    label: (value) => value == 0 ? zh('关闭') : value.toStringAsFixed(1),
     onChanged: (value) => _apply(
       () => session?.setDanmakuStroke(value) ?? _asyncSave(stroke: value),
     ),
   );
 
   Widget _shadowTile() => SliderTile(
-    title: '阴影',
-    subtitle: _shadow == 0 ? '关闭' : '阴影越浓字越清晰',
+    title: zh('阴影'),
+    subtitle: zh(_shadow == 0 ? '关闭' : '阴影越浓字越清晰'),
     value: _shadow,
     min: danmakuShadowMin,
     max: danmakuShadowMax,
     divisions: 12,
-    label: (value) => value == 0 ? '关闭' : value.toStringAsFixed(1),
+    label: (value) => value == 0 ? zh('关闭') : value.toStringAsFixed(1),
     onChanged: (value) => _apply(
       () => session?.setDanmakuShadow(value) ?? _asyncSave(shadow: value),
     ),
   );
 
   Widget _speedTile() => SliderTile(
-    title: '滚动速度',
-    subtitle: '弹幕划过屏幕的快慢',
+    title: zh('滚动速度'),
+    subtitle: zh('弹幕划过屏幕的快慢'),
     value: _preferences.danmakuSpeed,
     min: danmakuSpeedMin,
     max: danmakuSpeedMax,
@@ -170,7 +171,7 @@ class DanmakuSettings extends StatelessWidget {
               for (final (index, color) in danmakuColors.indexed)
                 ChoiceChip(
                   avatar: CircleAvatar(backgroundColor: Color(color)),
-                  label: Text(_colorLabels[index]),
+                  label: Text(zh(_colorLabels[index])),
                   selected: preferences.danmakuColor == color,
                   showCheckmark: false,
                   shape: const StadiumBorder(),
@@ -186,8 +187,8 @@ class DanmakuSettings extends StatelessWidget {
         _opacityTile(),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('加粗'),
-          subtitle: const Text('加粗的字在亮背景上更清楚'),
+          title: Text(zh('加粗')),
+          subtitle: Text(zh('加粗的字在亮背景上更清楚')),
           value: preferences.danmakuBold,
           onChanged: (value) => _apply(
             () => session?.setDanmakuBold(value) ?? _asyncSave(bold: value),
@@ -199,9 +200,11 @@ class DanmakuSettings extends StatelessWidget {
         _speedTile(),
         _section(context, '合并重复'),
         Text(
-          preferences.danmakuMerge == DanmakuMerge.off
-              ? '关闭时每条弹幕单独滚动。'
-              : '时间相近、文字完全相同的弹幕并成一条，后面标上出现的次数。',
+          zh(
+            preferences.danmakuMerge == DanmakuMerge.off
+                ? '关闭时每条弹幕单独滚动。'
+                : '时间相近、文字完全相同的弹幕并成一条，后面标上出现的次数。',
+          ),
           style: TextStyle(fontSize: 13, height: 1.4, color: label.color),
         ),
         Padding(
@@ -212,7 +215,7 @@ class DanmakuSettings extends StatelessWidget {
             children: [
               for (final merge in DanmakuMerge.values)
                 ChoiceChip(
-                  label: Text(merge.label),
+                  label: Text(zh(merge.label)),
                   selected: preferences.danmakuMerge == merge,
                   showCheckmark: false,
                   shape: const StadiumBorder(),
@@ -234,7 +237,7 @@ class DanmakuSettings extends StatelessWidget {
             children: [
               for (final coverage in DanmakuCoverage.values)
                 ChoiceChip(
-                  label: Text(coverage.label),
+                  label: Text(zh(coverage.label)),
                   selected: preferences.danmakuCoverage == coverage,
                   showCheckmark: false,
                   shape: const StadiumBorder(),
@@ -250,8 +253,8 @@ class DanmakuSettings extends StatelessWidget {
         _section(context, '屏蔽词'),
         Text(
           preferences.danmakuWords.isEmpty
-              ? '没有屏蔽词，含屏蔽词的弹幕会直接不显示。'
-              : '已屏蔽 ${preferences.danmakuWords.length} 个词：${preferences.danmakuWords.join('、')}',
+              ? zh('没有屏蔽词，含屏蔽词的弹幕会直接不显示。')
+              : '${zh('已屏蔽')} ${preferences.danmakuWords.length} ${zh('个词：')}${preferences.danmakuWords.join('、')}',
           style: TextStyle(fontSize: 13, height: 1.4, color: label.color),
         ),
         const SizedBox(height: 8),
@@ -262,7 +265,7 @@ class DanmakuSettings extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: () => _editWords(context),
               icon: const Icon(Icons.filter_alt_outlined, size: 18),
-              label: const Text('管理屏蔽词'),
+              label: Text(zh('管理屏蔽词')),
             ),
           ),
         ),
@@ -273,7 +276,7 @@ class DanmakuSettings extends StatelessWidget {
   Widget _section(BuildContext context, String title) => Padding(
     padding: EdgeInsets.fromLTRB(0, dense ? 18 : 24, 0, 8),
     child: Text(
-      title,
+      zh(title),
       style: Theme.of(
         context,
       ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -304,20 +307,20 @@ class _WordsDialogState extends State<_WordsDialog> {
     final word = _controller.text.trim();
     if (word.isEmpty) return;
     if (word.length > danmakuWordLength) {
-      setState(() => _error = '单个屏蔽词最多 $danmakuWordLength 个字');
+      setState(() => _error = zh('单个屏蔽词最多 $danmakuWordLength 个字'));
       return;
     }
     final key = normalizedSearchText(word);
     if (key.isEmpty) {
-      setState(() => _error = '只有标点或空格的词无法匹配弹幕');
+      setState(() => _error = zh('只有标点或空格的词无法匹配弹幕'));
       return;
     }
     if (_words.any((entry) => normalizedSearchText(entry) == key)) {
-      setState(() => _error = '这个词已经在列表里了');
+      setState(() => _error = zh('这个词已经在列表里了'));
       return;
     }
     if (_words.length >= danmakuWordLimit) {
-      setState(() => _error = '最多只能添加 $danmakuWordLimit 个屏蔽词');
+      setState(() => _error = zh('最多只能添加 $danmakuWordLimit 个屏蔽词'));
       return;
     }
     setState(() {
@@ -331,7 +334,7 @@ class _WordsDialogState extends State<_WordsDialog> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return AlertDialog(
-      title: const Text('弹幕屏蔽词'),
+      title: Text(zh('弹幕屏蔽词')),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -345,14 +348,14 @@ class _WordsDialogState extends State<_WordsDialog> {
                   child: FormTextField(
                     controller: _controller,
                     maxLength: danmakuWordLength,
-                    decoration: const InputDecoration(
-                      hintText: '输入要屏蔽的词',
+                    decoration: InputDecoration(
+                      hintText: zh('输入要屏蔽的词'),
                       counterText: '',
                     ),
                     onSubmitted: (_) => _add(),
                   ),
                 ),
-                FilledButton(onPressed: _add, child: const Text('添加')),
+                FilledButton(onPressed: _add, child: Text(zh('添加'))),
               ],
             ),
             const SizedBox(height: 8),
@@ -368,7 +371,7 @@ class _WordsDialogState extends State<_WordsDialog> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(
-                  '还没有屏蔽词',
+                  zh('还没有屏蔽词'),
                   style: TextStyle(color: colors.onSurfaceVariant),
                 ),
               )
@@ -402,14 +405,14 @@ class _WordsDialogState extends State<_WordsDialog> {
           radius: 20,
           child: TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(zh('取消')),
           ),
         ),
         FocusRing(
           radius: 20,
           child: FilledButton(
             onPressed: () => Navigator.pop(context, _words),
-            child: const Text('保存'),
+            child: Text(zh('保存')),
           ),
         ),
       ],

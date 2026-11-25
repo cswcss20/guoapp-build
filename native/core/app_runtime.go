@@ -83,6 +83,7 @@ type nativeInput struct {
 	Page            int                     `json:"page"`
 	Query           string                  `json:"query"`
 	Category        string                  `json:"category"`
+	Filters         map[string]string       `json:"filters"`
 	Drama           LibraryDrama            `json:"drama"`
 	Chapter         Chapter                 `json:"chapter"`
 	Index           int                     `json:"index"`
@@ -355,7 +356,7 @@ func nativeDispatch(input nativeInput) (any, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), duration)
 	defer cancel()
-	if input.Action == "danmaku" || input.Action == "preload" || input.Session != "" && (input.Action == "catalog" || input.Action == "categories" || input.Action == "suggestions" || input.Action == "recommendations" || input.Action == "metadata") {
+	if input.Action == "danmaku" || input.Action == "preload" || input.Session != "" && (input.Action == "catalog" || input.Action == "categories" || input.Action == "filters" || input.Action == "suggestions" || input.Action == "recommendations" || input.Action == "metadata") {
 		work, finish, err := engine.beginRead(ctx, input)
 		if err != nil {
 			return nil, err
@@ -455,6 +456,9 @@ func nativeDispatch(input nativeInput) (any, error) {
 	case "categories":
 		items, err := engine.nativeCategories(ctx, input.Source, input.Force)
 		return map[string]any{"items": items}, err
+	case "filters":
+		items, err := engine.nativeFilters(ctx, input)
+		return map[string]any{"items": items}, err
 	case "cover":
 		return engine.loadCover(ctx, input.Drama, input.Force)
 	case "prepareCover":
@@ -501,7 +505,11 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 	if !ValidNativeCategory(source, category) {
 		return nativeCatalogResult{}, errors.New("内容分类无效")
 	}
+	filters := nativeCleanFilters(input.Filters)
 	cacheKey := nativeCatalogKey(source, category)
+	if len(filters) > 0 {
+		cacheKey += "|f:" + nativeFilterKeySuffix(filters)
+	}
 	if err := ctx.Err(); err != nil {
 		return nativeCatalogResult{}, err
 	}
@@ -589,7 +597,15 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 			ctx = context.WithValue(ctx, LibraryMoreKey{}, true)
 		}
 	}
-	items, result.HasMore, err = registered.CatalogPage(ctx, page, category)
+	if len(filters) > 0 {
+		if filtered, ok := registered.(FilteredCataloger); ok {
+			items, result.HasMore, err = filtered.CatalogPageFiltered(ctx, page, category, filters)
+		} else {
+			items, result.HasMore, err = registered.CatalogPage(ctx, page, category)
+		}
+	} else {
+		items, result.HasMore, err = registered.CatalogPage(ctx, page, category)
+	}
 	if err != nil && len(items) == 0 {
 		return result, err
 	}

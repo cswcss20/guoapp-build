@@ -76,6 +76,31 @@ type WarningSearcher interface {
 	SearchWithWarning(ctx context.Context, page int, query string) ([]Drama, bool, string, error)
 }
 
+type FilterOption struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type FilterGroup struct {
+	ID      string         `json:"id"`
+	Name    string         `json:"name"`
+	Options []FilterOption `json:"options"`
+}
+
+// FilterProvider is an optional provider capability: the module exports
+// filters(category) and returns the filter groups for a catalog category.
+// It is asserted directly (not via providerAs) because modules do not
+// declare it in their manifest capabilities.
+type FilterProvider interface {
+	Filters(ctx context.Context, category string) ([]FilterGroup, error)
+}
+
+// FilteredCataloger is an optional provider capability: the module's
+// catalogPage accepts the user's filter picks as a third argument.
+type FilteredCataloger interface {
+	CatalogPageFiltered(ctx context.Context, page int, category string, filters map[string]string) ([]Drama, bool, error)
+}
+
 type CatalogStateful interface {
 	CatalogState() json.RawMessage
 	RestoreCatalogState(raw json.RawMessage)

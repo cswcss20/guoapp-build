@@ -27,6 +27,9 @@ class ExploreFeed extends ChangeNotifier {
   DramaFeed? _feed;
   final _feeds = <String, DramaFeed>{};
   final _rankings = <String, Map<String, int>>{};
+  final _filterGroups = <String, List<CatalogFilterGroup>>{};
+  final _filterPicks = <String, Map<String, String>>{};
+  final _filterLoading = <String>{};
   bool _disposed = false;
 
   SourceSite? get source => _catalog?.source;
@@ -44,6 +47,49 @@ class ExploreFeed extends ChangeNotifier {
       for (final board in catalog.boards) rankingTab(board),
       ...genres,
     ];
+  }
+
+  List<CatalogFilterGroup> filterGroupsIn(CatalogCategory tab) =>
+      _filterGroups[tab.id] ?? const [];
+
+  Map<String, String> filterPicksIn(CatalogCategory tab) =>
+      _filterPicks[tab.id] ?? const {};
+
+  bool filterable(CatalogCategory tab) {
+    final catalog = _catalog;
+    if (catalog == null || tab.local || tab.id == recommendTab.id) {
+      return false;
+    }
+    return !catalog.boards.any((board) => rankingTab(board).id == tab.id);
+  }
+
+  void setFilterPick(CatalogCategory tab, String groupId, String optionId) {
+    final picks = {...?_filterPicks[tab.id]};
+    if (optionId.isEmpty) {
+      picks.remove(groupId);
+    } else {
+      picks[groupId] = optionId;
+    }
+    _filterPicks[tab.id] = picks;
+    final feed = _feeds[tab.id];
+    if (feed != null) unawaited(feed.reload(force: true));
+    _notify();
+  }
+
+  Future<void> _loadFilters(
+    SourceCatalog catalog,
+    CatalogCategory tab,
+  ) async {
+    if (!filterable(tab) || _filterGroups.containsKey(tab.id)) return;
+    if (!_filterLoading.add(tab.id)) return;
+    var groups = const <CatalogFilterGroup>[];
+    try {
+      groups = await catalog.filters(tab);
+    } catch (_) {}
+    _filterLoading.remove(tab.id);
+    if (_disposed || catalog != _catalog) return;
+    _filterGroups[tab.id] = groups;
+    _notify();
   }
 
   int? rankOf(Drama drama) => rankIn(_tab, drama);
@@ -131,6 +177,8 @@ class ExploreFeed extends ChangeNotifier {
       if (valid.contains(id)) continue;
       _feeds.remove(id)?.dispose();
       _rankings.remove(id);
+      _filterGroups.remove(id);
+      _filterPicks.remove(id);
     }
     if (!valid.contains(_tab.id)) {
       _select(catalog.recommends ? recommendTab : CatalogCategory.all);
@@ -165,14 +213,32 @@ class ExploreFeed extends ChangeNotifier {
                 _saved(_ranking(catalog, board, ranks, page, force)),
           )
         : DramaFeed(
-            cached: () => catalog.cached(tab),
+            cached: () => _cachedFor(tab),
             load: (page, force) => _saved(
-              catalog.fetch(tab, page: page, lane: _lane(tab), force: force),
+              catalog.fetch(
+                tab,
+                page: page,
+                lane: _lane(tab),
+                force: force,
+                filters: _filterPicks[tab.id] ?? const {},
+              ),
             ),
           );
+    if (board == null && tab.id != recommendTab.id) {
+      unawaited(_loadFilters(catalog, tab));
+    }
     unawaited(feed.reload());
     feed.addListener(_feedChanged);
     return feed;
+  }
+
+  Future<CatalogPage> _cachedFor(CatalogCategory tab) {
+    final picks = _filterPicks[tab.id];
+    if (picks != null && picks.isNotEmpty) {
+      // Never paint the unfiltered cache under an active filter selection.
+      return Future.value(CatalogPage(const [], hasMore: false));
+    }
+    return _catalog!.cached(tab);
   }
 
   String _lane(CatalogCategory tab) {
@@ -254,6 +320,9 @@ class ExploreFeed extends ChangeNotifier {
     }
     _feeds.clear();
     _rankings.clear();
+    _filterGroups.clear();
+    _filterPicks.clear();
+    _filterLoading.clear();
     _feed = null;
   }
 

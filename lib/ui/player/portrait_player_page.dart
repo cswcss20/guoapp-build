@@ -10,6 +10,7 @@ import '../../local_store.dart';
 import '../../models.dart';
 import '../../playback_preferences.dart';
 import '../../playback_session.dart';
+import '../../zh_script.dart';
 import '../app_scope.dart';
 import '../downloads/download_actions.dart';
 import '../theme/app_theme.dart';
@@ -770,7 +771,7 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
                 },
                 icon: const Icon(Icons.fullscreen_rounded),
                 color: Colors.white,
-                tooltip: '全屏',
+                tooltip: zh('全屏'),
                 style: IconButton.styleFrom(
                   backgroundColor: Colors.white.withValues(alpha: .14),
                   shape: RoundedRectangleBorder(
@@ -899,7 +900,7 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
           onPressed: () => unawaited(Navigator.maybePop(context)),
           icon: const Icon(Icons.arrow_back_rounded),
           color: Colors.white,
-          tooltip: '返回',
+          tooltip: zh('返回'),
           style: IconButton.styleFrom(fixedSize: const Size.square(48)),
         ),
         Expanded(
@@ -982,7 +983,7 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
       onPressed: _session.ready
           ? () => _seekBy(Duration(seconds: forward ? seconds : -seconds))
           : null,
-      tooltip: forward ? '快进 $seconds 秒' : '快退 $seconds 秒',
+      tooltip: zh(forward ? '快进 $seconds 秒' : '快退 $seconds 秒'),
       color: Colors.white,
       disabledColor: Colors.white.withValues(alpha: .36),
       style: IconButton.styleFrom(
@@ -1281,12 +1282,12 @@ class _EpisodeSheetState extends State<EpisodeSheet> {
                       IconButton(
                         onPressed: () => _select(true),
                         icon: const Icon(Icons.download_rounded),
-                        tooltip: '下载选集',
+                        tooltip: zh('下载选集'),
                       ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.close_rounded),
-                      tooltip: '关闭',
+                      tooltip: zh('关闭'),
                     ),
                   ],
           ),
@@ -1392,7 +1393,7 @@ class SeasonSheet extends StatelessWidget {
             IconButton(
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.close_rounded),
-              tooltip: '关闭',
+              tooltip: zh('关闭'),
             ),
           ],
         ),

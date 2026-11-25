@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core_bridge.dart';
+import '../../zh_script.dart';
 import '../app_scope.dart';
 import '../widgets/focus_ring.dart';
 import '../widgets/form_text_field.dart';
@@ -94,7 +95,7 @@ class _EmbyAccountButtonState extends State<EmbyAccountButton> {
         style: widget.style,
         onPressed: widget.admin && _account != null && !_busy ? _toggle : null,
         icon: Icon(loggedIn ? Icons.logout_rounded : Icons.login_rounded),
-        label: Text(loggedIn ? '退出登录' : '登录'),
+        label: Text(zh(loggedIn ? '退出登录' : '登录')),
       ),
     );
   }
@@ -131,7 +132,7 @@ class _EmbyLoginDialogState extends State<_EmbyLoginDialog> {
     final server = _server.text.trim();
     final username = _username.text.trim();
     if (server.isEmpty || username.isEmpty) {
-      setState(() => _error = '请填写服务器地址和用户名');
+      setState(() => _error = zh('请填写服务器地址和用户名'));
       return;
     }
     setState(() {
@@ -157,7 +158,7 @@ class _EmbyLoginDialogState extends State<_EmbyLoginDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('登录 Emby'),
+    title: Text(zh('登录 Emby')),
     content: SizedBox(
       width: 352,
       child: SingleChildScrollView(
@@ -171,8 +172,8 @@ class _EmbyLoginDialogState extends State<_EmbyLoginDialog> {
               autofocus: true,
               maxLength: 256,
               onSubmitted: (_) => _usernameFocus.requestFocus(),
-              decoration: const InputDecoration(
-                labelText: '服务器地址',
+              decoration: InputDecoration(
+                labelText: zh('服务器地址'),
                 hintText: 'http://192.168.1.10:8096',
               ),
             ),
@@ -181,7 +182,7 @@ class _EmbyLoginDialogState extends State<_EmbyLoginDialog> {
               focusNode: _usernameFocus,
               maxLength: 128,
               onSubmitted: (_) => _secretFocus.requestFocus(),
-              decoration: const InputDecoration(labelText: '用户名'),
+              decoration: InputDecoration(labelText: zh('用户名')),
             ),
             FormTextField(
               controller: _secret,
@@ -190,12 +191,12 @@ class _EmbyLoginDialogState extends State<_EmbyLoginDialog> {
               maxLength: 128,
               onSubmitted: (_) => _submit(),
               decoration: InputDecoration(
-                labelText: '密码（如有）',
-                hintText: '没有密码可留空',
+                labelText: zh('密码（如有）'),
+                hintText: zh('没有密码可留空'),
                 errorText: _error,
               ),
             ),
-            const Text('登录信息只保存在本机，并直接与你的 Emby 服务器通信。'),
+            Text(zh('登录信息只保存在本机，并直接与你的 Emby 服务器通信。')),
           ],
         ),
       ),
@@ -205,7 +206,7 @@ class _EmbyLoginDialogState extends State<_EmbyLoginDialog> {
         radius: 20,
         child: TextButton(
           onPressed: _busy ? null : () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(zh('取消')),
         ),
       ),
       FocusRing(
@@ -218,7 +219,7 @@ class _EmbyLoginDialogState extends State<_EmbyLoginDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('登录'),
+              : Text(zh('登录')),
         ),
       ),
     ],

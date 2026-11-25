@@ -101,11 +101,11 @@ class PlaybackSettings extends StatelessWidget {
     children: [
       SheetHeader(
         children: [
-          const Expanded(child: Text('播放设置', style: sheetTitle)),
+          Expanded(child: Text(zh('播放设置'), style: sheetTitle)),
           IconButton(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.close_rounded),
-            tooltip: '关闭',
+            tooltip: zh('关闭'),
           ),
         ],
       ),
@@ -155,7 +155,7 @@ class PlaybackSettingsList extends StatelessWidget {
       return ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          Text('倍速', style: label),
+          Text(zh('倍速'), style: label),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -170,7 +170,7 @@ class PlaybackSettingsList extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          Text('清晰度', style: label),
+          Text(zh('清晰度'), style: label),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -189,7 +189,7 @@ class PlaybackSettingsList extends StatelessWidget {
                         label: quality == 0
                             ? (session.quality == 0
                                   ? session.qualityLabel
-                                  : '自动')
+                                  : zh('自动'))
                             : session.qualityText(quality),
                         selected: quality == session.quality,
                         onSelected: session.ready
@@ -265,7 +265,7 @@ class PlaybackSettingsList extends StatelessWidget {
           ),
           if (!session.audio) ...[
             const SizedBox(height: 18),
-            Text('画面比例', style: label),
+            Text(zh('画面比例'), style: label),
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
@@ -273,7 +273,7 @@ class PlaybackSettingsList extends StatelessWidget {
               children: [
                 for (final fit in VideoFit.values)
                   _Choice(
-                    label: fit.label,
+                    label: zh(fit.label),
                     selected: fit == session.videoFit,
                     onSelected: () => _change(() => session.setVideoFit(fit)),
                   ),
@@ -281,7 +281,7 @@ class PlaybackSettingsList extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 18),
-          Text(sleepTimerLabel(session), style: label),
+          Text(zh(sleepTimerLabel(session)), style: label),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -289,7 +289,7 @@ class PlaybackSettingsList extends StatelessWidget {
             children: [
               for (final choice in sleepChoices)
                 _Choice(
-                  label: choice.label,
+                  label: zh(choice.label),
                   selected: choice.selected(session),
                   onSelected: () => choice.apply(session),
                 ),
@@ -299,7 +299,7 @@ class PlaybackSettingsList extends StatelessWidget {
             const SizedBox(height: 8),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('弹幕'),
+              title: Text(zh('弹幕')),
               value: session.danmakuEnabled,
               onChanged: (_) => _change(session.toggleDanmaku),
             ),
@@ -309,9 +309,9 @@ class PlaybackSettingsList extends StatelessWidget {
               shape: const Border(),
               collapsedShape: const Border(),
               leading: const Icon(Icons.text_fields_rounded),
-              title: const Text('弹幕样式'),
+              title: Text(zh('弹幕样式')),
               subtitle: Text(
-                '字号、颜色、透明度、合并与显示区域',
+                zh('字号、颜色、透明度、合并与显示区域'),
                 style: TextStyle(fontSize: 12, color: label.color),
               ),
               children: [
@@ -327,14 +327,14 @@ class PlaybackSettingsList extends StatelessWidget {
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.picture_in_picture_alt_rounded),
-              title: const Text('小窗播放'),
+              title: Text(zh('小窗播放')),
               onTap: onMiniWindow,
             ),
           if (castSupported)
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.cast_rounded),
-              title: const Text('投屏'),
+              title: Text(zh('投屏')),
               onTap: onCast,
             ),
         ],

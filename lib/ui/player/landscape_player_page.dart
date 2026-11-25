@@ -10,6 +10,7 @@ import '../../local_store.dart';
 import '../../models.dart';
 import '../../playback_preferences.dart';
 import '../../playback_session.dart';
+import '../../zh_script.dart';
 import '../app_scope.dart';
 import '../detail/season_strip.dart';
 import '../downloads/download_actions.dart';
@@ -955,7 +956,7 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
       onPressed: _session.ready
           ? () => _seekBy(Duration(seconds: forward ? seconds : -seconds))
           : null,
-      tooltip: forward ? '快进 $seconds 秒' : '快退 $seconds 秒',
+      tooltip: zh(forward ? '快进 $seconds 秒' : '快退 $seconds 秒'),
       color: Colors.white,
       disabledColor: Colors.white.withValues(alpha: .36),
       style: IconButton.styleFrom(
@@ -1314,7 +1315,7 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
                 IconButton(
                   onPressed: _closePanel,
                   icon: const Icon(Icons.close_rounded),
-                  tooltip: '关闭',
+                  tooltip: zh('关闭'),
                 ),
               ],
             ),
@@ -1623,7 +1624,7 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
               IconButton(
                 onPressed: () => _select(true),
                 icon: const Icon(Icons.download_rounded),
-                tooltip: '下载选集',
+                tooltip: zh('下载选集'),
               ),
           ],
         ),

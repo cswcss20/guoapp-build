@@ -7,6 +7,7 @@ import '../../core_bridge.dart';
 import '../../media_controls.dart';
 import '../../models.dart';
 import '../../playback_session.dart';
+import '../../zh_script.dart';
 import 'playback_sheets.dart';
 import 'player_surface.dart' show formatClock;
 
@@ -89,16 +90,16 @@ class _CastDevicesState extends State<_CastDevices> {
     children: [
       SheetHeader(
         children: [
-          const Expanded(child: Text('选择投屏设备', style: sheetTitle)),
+          Expanded(child: Text(zh('选择投屏设备'), style: sheetTitle)),
           IconButton(
             onPressed: _searching ? null : _search,
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: '重新搜索',
+            tooltip: zh('重新搜索'),
           ),
           IconButton(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.close_rounded),
-            tooltip: '关闭',
+            tooltip: zh('关闭'),
           ),
         ],
       ),
@@ -108,7 +109,7 @@ class _CastDevicesState extends State<_CastDevices> {
             : _error != null
             ? _message(_error!)
             : _devices.isEmpty
-            ? _message('没有找到可投屏的设备。\n请确认电视或盒子已开机，并且和本机连着同一个 Wi-Fi，然后重新搜索。')
+            ? _message(zh('没有找到可投屏的设备。\n请确认电视或盒子已开机，并且和本机连着同一个 Wi-Fi，然后重新搜索。'))
             : ListView(
                 children: [
                   for (final device in _devices)
@@ -366,7 +367,7 @@ class _CastPageState extends State<CastPage> {
           child: Scaffold(
             appBar: AppBar(
               leading: BackButton(onPressed: _exit),
-              title: const Text('投屏'),
+              title: Text(zh('投屏')),
             ),
             body: SafeArea(
               child: Center(
@@ -394,7 +395,7 @@ class _CastPageState extends State<CastPage> {
                           '${_session.detail.drama.title} · ${_episodes[_index].title}',
                           textAlign: TextAlign.center,
                         ),
-                        Text(_label, style: muted),
+                        Text(zh(_label), style: muted),
                         if (_error case final error?)
                           Text(
                             error,
@@ -431,7 +432,7 @@ class _CastPageState extends State<CastPage> {
                                   : null,
                               icon: const Icon(Icons.skip_previous_rounded),
                               iconSize: 32,
-                              tooltip: '上一集',
+                              tooltip: zh('上一集'),
                             ),
                             if (_started || _busy)
                               IconButton.filled(
@@ -444,7 +445,7 @@ class _CastPageState extends State<CastPage> {
                                       : Icons.play_arrow_rounded,
                                 ),
                                 iconSize: 40,
-                                tooltip: _state == 'playing' ? '暂停' : '播放',
+                                tooltip: zh(_state == 'playing' ? '暂停' : '播放'),
                               )
                             else
                               IconButton.filled(
@@ -453,7 +454,7 @@ class _CastPageState extends State<CastPage> {
                                     : () => _play(_index, position: _position),
                                 icon: const Icon(Icons.refresh_rounded),
                                 iconSize: 40,
-                                tooltip: '重试',
+                                tooltip: zh('重试'),
                               ),
                             IconButton(
                               onPressed:
@@ -464,18 +465,20 @@ class _CastPageState extends State<CastPage> {
                                   : null,
                               icon: const Icon(Icons.skip_next_rounded),
                               iconSize: 32,
-                              tooltip: '下一集',
+                              tooltip: zh('下一集'),
                             ),
                           ],
                         ),
                         FilledButton.tonal(
                           onPressed: _leaving ? null : _exit,
-                          child: const Text('结束投屏'),
+                          child: Text(zh('结束投屏')),
                         ),
                         Text(
-                          Platform.isAndroid
-                              ? '投屏期间可以切到后台或熄屏，但不要从最近任务里划掉应用：视频要经本机转给电视，自动下一集和观看进度也靠应用运行。'
-                              : '投屏期间请保持应用运行：视频要经本机转给电视，自动下一集和观看进度也靠应用运行。',
+                          zh(
+                            Platform.isAndroid
+                                ? '投屏期间可以切到后台或熄屏，但不要从最近任务里划掉应用：视频要经本机转给电视，自动下一集和观看进度也靠应用运行。'
+                                : '投屏期间请保持应用运行：视频要经本机转给电视，自动下一集和观看进度也靠应用运行。',
+                          ),
                           textAlign: TextAlign.center,
                           style: muted,
                         ),

@@ -233,6 +233,34 @@ func (p *jsProvider) CatalogPage(ctx context.Context, page int, category string)
 	return result.Items, result.HasMore, nil
 }
 
+// CatalogPageFiltered passes the user's filter picks ({groupId: optionId})
+// to the module's catalogPage as a third argument. With no picks it is
+// exactly CatalogPage, so modules without filter support are unaffected.
+func (p *jsProvider) CatalogPageFiltered(ctx context.Context, page int, category string, filters map[string]string) ([]Drama, bool, error) {
+	if len(filters) == 0 {
+		return p.CatalogPage(ctx, page, category)
+	}
+	var result jsDramaPage
+	if err := p.call(ctx, "catalogPage", &result, page, category, filters); err != nil {
+		return nil, false, err
+	}
+	if result.Warning != "" {
+		return result.Items, result.HasMore, errors.New(result.Warning)
+	}
+	return result.Items, result.HasMore, nil
+}
+
+// Filters asks the module for its filter groups for a category. A module
+// that does not export filters, or fails while computing them, simply has
+// no filter groups; existing flows are never broken by this call.
+func (p *jsProvider) Filters(ctx context.Context, category string) ([]FilterGroup, error) {
+	var groups []FilterGroup
+	if err := p.call(ctx, "filters", &groups, category); err != nil {
+		return nil, nil
+	}
+	return groups, nil
+}
+
 func (p *jsProvider) Search(ctx context.Context, page int, query string) ([]Drama, bool, error) {
 	items, more, _, err := p.SearchWithWarning(ctx, page, query)
 	return items, more, err

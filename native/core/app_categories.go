@@ -2,7 +2,10 @@ package core
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"sort"
 	"strings"
 )
 
@@ -17,6 +20,99 @@ func nativeCatalogKey(source, category string) string {
 		return source + "|" + category
 	}
 	return source
+}
+
+// nativeFilters returns the filter groups a module declares for one
+// catalog category. Modules without a filters export (or with a failing
+// one) yield an empty list, never an error, so the catalog UI can simply
+// omit the filter bar.
+func (engine *nativeEngine) nativeFilters(ctx context.Context, input nativeInput) ([]FilterGroup, error) {
+	source := canonicalProviderSource(input.Source)
+	if !registeredProviderSource(source) {
+		return nil, errors.New("请选择有效站源")
+	}
+	category := strings.TrimSpace(input.Category)
+	if !ValidNativeCategory(source, category) {
+		return nil, errors.New("内容分类无效")
+	}
+	provider, ok := engine.downloader.provider(source)
+	if !ok {
+		return nil, errors.New("请选择有效站源")
+	}
+	filtered, ok := provider.(FilterProvider)
+	if !ok {
+		return []FilterGroup{}, nil
+	}
+	groups, err := filtered.Filters(ctx, category)
+	if err != nil || len(groups) == 0 {
+		return []FilterGroup{}, nil
+	}
+	cleaned := make([]FilterGroup, 0, len(groups))
+	for _, group := range groups {
+		group.ID = strings.TrimSpace(group.ID)
+		group.Name = strings.TrimSpace(group.Name)
+		if group.ID == "" || group.Name == "" || len(group.Options) == 0 {
+			continue
+		}
+		options := make([]FilterOption, 0, len(group.Options))
+		for _, option := range group.Options {
+			option.ID = strings.TrimSpace(option.ID)
+			option.Name = strings.TrimSpace(option.Name)
+			if option.Name == "" {
+				continue
+			}
+			options = append(options, option)
+		}
+		if len(options) < 2 {
+			continue
+		}
+		group.Options = options
+		cleaned = append(cleaned, group)
+		if len(cleaned) >= 12 {
+			break
+		}
+	}
+	return cleaned, nil
+}
+
+// nativeCleanFilters drops empty group ids and empty picks (an empty pick
+// means "全部/預設" and is never sent to the module).
+func nativeCleanFilters(raw map[string]string) map[string]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	cleaned := make(map[string]string, len(raw))
+	for id, value := range raw {
+		id = strings.TrimSpace(id)
+		value = strings.TrimSpace(value)
+		if id == "" || value == "" {
+			continue
+		}
+		cleaned[id] = value
+	}
+	if len(cleaned) == 0 {
+		return nil
+	}
+	return cleaned
+}
+
+// nativeFilterKeySuffix keeps filtered catalog pages in their own cache
+// bucket so they never mix with the unfiltered listing of a category.
+func nativeFilterKeySuffix(filters map[string]string) string {
+	keys := make([]string, 0, len(filters))
+	for id := range filters {
+		keys = append(keys, id)
+	}
+	sort.Strings(keys)
+	var builder strings.Builder
+	for _, id := range keys {
+		builder.WriteString(id)
+		builder.WriteByte('=')
+		builder.WriteString(filters[id])
+		builder.WriteByte('&')
+	}
+	sum := sha256.Sum256([]byte(builder.String()))
+	return hex.EncodeToString(sum[:8])
 }
 
 func ValidNativeCategory(source, category string) bool {
