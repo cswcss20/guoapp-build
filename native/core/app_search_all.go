@@ -76,20 +76,20 @@ func (engine *nativeEngine) nativeSearchAll(ctx context.Context, input nativeInp
 	}
 	outcomes := make([]searchAllOutcome, len(targets))
 	var wait sync.WaitGroup
-	for index, target := range targets {
+	for index, tgt := range targets {
 		wait.Add(1)
-		go func(index int, target target) {
+		go func(index int, tgt target) {
 			defer wait.Done()
 			sourceCtx, cancel := context.WithTimeout(ctx, searchAllTimeout)
 			defer cancel()
-			items, more, err := target.search(sourceCtx)
+			items, more, err := tgt.search(sourceCtx)
 			if err != nil {
 				outcomes[index].failed = true
 				return
 			}
 			group := nativeSearchGroup{
-				Source:  target.descriptor.ID,
-				Name:    target.descriptor.Name,
+				Source:  tgt.descriptor.ID,
+				Name:    tgt.descriptor.Name,
 				Items:   []LibraryDrama{},
 				HasMore: more,
 			}
@@ -102,7 +102,7 @@ func (engine *nativeEngine) nativeSearchAll(ctx context.Context, input nativeInp
 				group.Items = append(group.Items, NativeNormalize(drama))
 			}
 			outcomes[index].group = group
-		}(index, target)
+		}(index, tgt)
 	}
 	wait.Wait()
 	for index, outcome := range outcomes {
