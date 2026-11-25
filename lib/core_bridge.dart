@@ -172,6 +172,9 @@ abstract class AppRepository {
     String source, {
     String category = '',
   }) async => const [];
+  Future<SearchAllPage> searchAll(String query, {int page = 1}) async =>
+      throw AppFailure('当前环境不支持跨站源搜索');
+  Future<void> cancelSearchAll() async {}
   bool get supportsSourceManagement => false;
   Future<List<SourceModule>> modules() async => const [];
   Future<ModuleStore> moduleIndex() async => throw AppFailure('当前环境不支持模块商店');
@@ -1067,6 +1070,19 @@ class NativeRepository extends AppRepository {
           'category': category,
         }),
       );
+  @override
+  Future<SearchAllPage> searchAll(String query, {int page = 1}) async =>
+      SearchAllPage.fromJson(
+        // The scope only identifies the read stream; cap the segment so a
+        // very long query cannot push the session past validNativeRead's
+        // length limit.
+        await _read(
+          'search-all-${_scopeSegment(String.fromCharCodes(query.runes.take(64)))}',
+          {'action': 'searchAll', 'query': query, 'page': page},
+        ),
+      );
+  @override
+  Future<void> cancelSearchAll() => _cancelReads('search-all-');
   @override
   bool coverCached(Drama drama) =>
       _coverPaths.containsKey('${drama.id}\u0000${drama.cover}');

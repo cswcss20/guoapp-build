@@ -423,6 +423,53 @@ class CatalogPage {
   );
 }
 
+/// One source's slice of a cross-source search (`searchAll` action).
+class SearchAllGroup {
+  const SearchAllGroup(
+    this.source,
+    this.name,
+    this.items, {
+    this.hasMore = false,
+  });
+  final String source;
+  final String name;
+  final List<Drama> items;
+  final bool hasMore;
+  factory SearchAllGroup.fromJson(Map<String, dynamic> json) => SearchAllGroup(
+    json['source'] as String? ?? '',
+    json['name'] as String? ?? '',
+    [
+      for (final row in json['items'] as List? ?? const [])
+        Drama.fromJson(Map<String, dynamic>.from(row as Map)),
+    ],
+    hasMore: json['hasMore'] == true,
+  );
+}
+
+/// A page of cross-source search results: per-source groups plus the ids
+/// of searchable sources that failed or timed out for this page.
+class SearchAllPage {
+  const SearchAllPage(
+    this.groups, {
+    this.failed = const [],
+    this.page = 1,
+    this.hasMore = false,
+  });
+  final List<SearchAllGroup> groups;
+  final List<String> failed;
+  final int page;
+  final bool hasMore;
+  factory SearchAllPage.fromJson(Map<String, dynamic> json) => SearchAllPage(
+    [
+      for (final row in json['groups'] as List? ?? const [])
+        SearchAllGroup.fromJson(Map<String, dynamic>.from(row as Map)),
+    ],
+    failed: (json['failed'] as List? ?? const []).whereType<String>().toList(),
+    page: intValue(json['page']) > 0 ? intValue(json['page']) : 1,
+    hasMore: json['hasMore'] == true,
+  );
+}
+
 class PlaybackPlan {
   const PlaybackPlan({
     required this.url,
