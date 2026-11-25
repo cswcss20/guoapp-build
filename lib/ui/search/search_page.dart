@@ -14,6 +14,7 @@ import '../detail/detail_page.dart';
 import '../shell/app_shell.dart';
 import '../theme/motion.dart';
 import '../widgets/drama_grid.dart';
+import '../widgets/filter_bar.dart';
 import '../widgets/follow_button.dart';
 import '../widgets/focus_ring.dart';
 import '../widgets/motion/motion_widgets.dart';
@@ -46,6 +47,11 @@ class _SearchPageState extends State<SearchPage> {
   Timer? _debounce;
   int _suggestion = 0;
   final _shownSuggestions = <Object>{};
+  // Search filter groups are per source, not per query: loaded once for
+  // the source, while picks reset on every new submission.
+  List<CatalogFilterGroup>? _filterGroups;
+  Map<String, String> _filterPicks = {};
+  bool _filterLoading = false;
   bool _ready = false;
 
   @override
@@ -129,14 +135,60 @@ class _SearchPageState extends State<SearchPage> {
     _suggestion++;
     unawaited(widget.store.rememberSearch(query).catchError((Object _) {}));
     _results?.dispose();
+    _filterPicks = {};
     final results = _results = DramaFeed(
-      load: (page, _) => _catalog.search(query, page: page),
+      load: (page, _) =>
+          _catalog.search(query, page: page, filters: _filterPicks),
     )..addListener(() => setState(() {}));
     unawaited(results.reload());
+    unawaited(_loadSearchFilters());
     setState(() {
       _submitted = query;
       _suggestions = const [];
     });
+  }
+
+  Future<void> _loadSearchFilters() async {
+    if (_filterGroups != null || _filterLoading) return;
+    _filterLoading = true;
+    try {
+      final groups = await _catalog.searchFilters();
+      if (!mounted) return;
+      _filterGroups = groups;
+    } catch (_) {
+      // No groups: the bar simply stays hidden, like on catalog tabs
+      // for modules without a filters export.
+      if (!mounted) return;
+      _filterGroups = const [];
+    }
+    _filterLoading = false;
+    if (mounted) setState(() {});
+  }
+
+  void _setFilterPick(String groupId, String optionId) {
+    final picks = {..._filterPicks};
+    if (optionId.isEmpty) {
+      picks.remove(groupId);
+    } else {
+      picks[groupId] = optionId;
+    }
+    _filterPicks = picks;
+    final results = _results;
+    if (results != null) unawaited(results.reload(force: true));
+    setState(() {});
+  }
+
+  Widget? _filterBar(double inset) {
+    final groups = _filterGroups;
+    if (groups == null || groups.isEmpty) return null;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(inset, 12, inset, 0),
+      child: FilterBar(
+        groups: groups,
+        picks: _filterPicks,
+        onPick: _setFilterPick,
+      ),
+    );
   }
 
   void _changed(String text) {
@@ -256,15 +308,23 @@ class _SearchPageState extends State<SearchPage> {
         child: _recent(context),
       );
     }
+    final inset = television
+        ? televisionInset
+        : AppScope.formFactorOf(context) == FormFactor.phone
+        ? 16.0
+        : 24.0;
+    // The filter bar stays visible above every results state — including
+    // an empty filtered result — so the user can always change the picks
+    // instead of being stuck on a stale list with no way back.
+    final Widget content;
     if (results.items.isEmpty) {
       if (results.loading) {
-        return const StatusView.loading(
+        content = const StatusView.loading(
           key: ValueKey('loading'),
           title: '正在搜索',
         );
-      }
-      if (results.error.isNotEmpty) {
-        return StatusView(
+      } else if (results.error.isNotEmpty) {
+        content = StatusView(
           key: const ValueKey('error'),
           title: '搜索失败',
           message: results.error,
@@ -272,53 +332,53 @@ class _SearchPageState extends State<SearchPage> {
           action: '重试',
           onAction: () => results.reload(),
         );
+      } else {
+        content = StatusView(
+          key: const ValueKey('empty'),
+          title: '没有找到「$_submitted」',
+          message: '换个关键词试试',
+          icon: Icons.search_off_rounded,
+        );
       }
-      return StatusView(
-        key: const ValueKey('empty'),
-        title: '没有找到「$_submitted」',
-        message: '换个关键词试试',
-        icon: Icons.search_off_rounded,
+    } else {
+      content = LayoutBuilder(
+        key: ValueKey(('results', _submitted)),
+        builder: (context, constraints) => AutoLoadMore(
+          feed: results,
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  inset,
+                  television ? 16 : 8,
+                  inset,
+                  0,
+                ),
+                sliver: DramaSliverGrid(
+                  width: constraints.maxWidth - inset * 2,
+                  items: results.items,
+                  autofocus: television,
+                  onOpen: _open,
+                  onMore: (drama) => quickFollow(context, widget.store, drama),
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  inset,
+                  8,
+                  inset,
+                  television ? 27 : 16,
+                ),
+                sliver: SliverToBoxAdapter(child: FeedFooter(feed: results)),
+              ),
+            ],
+          ),
+        ),
       );
     }
-    final inset = television
-        ? televisionInset
-        : AppScope.formFactorOf(context) == FormFactor.phone
-        ? 16.0
-        : 24.0;
-    return LayoutBuilder(
-      key: ValueKey(('results', _submitted)),
-      builder: (context, constraints) => AutoLoadMore(
-        feed: results,
-        child: CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                inset,
-                television ? 16 : 8,
-                inset,
-                0,
-              ),
-              sliver: DramaSliverGrid(
-                width: constraints.maxWidth - inset * 2,
-                items: results.items,
-                autofocus: television,
-                onOpen: _open,
-                onMore: (drama) => quickFollow(context, widget.store, drama),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                inset,
-                8,
-                inset,
-                television ? 27 : 16,
-              ),
-              sliver: SliverToBoxAdapter(child: FeedFooter(feed: results)),
-            ),
-          ],
-        ),
-      ),
-    );
+    final bar = _filterBar(inset);
+    if (bar == null) return content;
+    return Column(children: [bar, Expanded(child: content)]);
   }
 
   Widget _recent(BuildContext context) => ListenableBuilder(

@@ -386,34 +386,44 @@ class ExplorePageState extends State<ExplorePage> {
   }) {
     final hero = _hero(explore, tab);
     final items = explore.itemsIn(tab);
+    // The filter bar stays mounted above every content state — grid,
+    // loading, error, and empty — so it never disappears when a filter
+    // yields zero results, and its expanded state survives the switch
+    // (the same bar instance, not a fresh one per branch). Before this,
+    // the bar only lived inside the grid's slivers, so an empty result
+    // dropped the user onto a status page with no way to change the
+    // picks that produced it.
+    final bar = _filterBar(explore, tab, inset);
+    final Widget content;
     if (feed.items.isEmpty) {
-      final bar = _filterBar(explore, tab, inset);
-      if (bar == null) return FadeSwitcher(child: _status(feed, inset));
-      return Column(
-        children: [
-          bar,
-          Expanded(child: FadeSwitcher(child: _status(feed, inset))),
-        ],
+      content = FadeSwitcher(child: _status(feed, inset));
+    } else {
+      final phone = AppScope.formFactorOf(context) == FormFactor.phone;
+      final desktop = AppScope.formFactorOf(context) == FormFactor.window;
+      content = FadeIn(
+        enabled: fade,
+        child: _grid(
+          explore,
+          tab,
+          feed,
+          hero,
+          items,
+          inset,
+          television,
+          tabs,
+          phone,
+          desktop,
+          scroll,
+          refreshKey,
+        ),
       );
     }
-    final phone = AppScope.formFactorOf(context) == FormFactor.phone;
-    final desktop = AppScope.formFactorOf(context) == FormFactor.window;
-    return FadeIn(
-      enabled: fade,
-      child: _grid(
-        explore,
-        tab,
-        feed,
-        hero,
-        items,
-        inset,
-        television,
-        tabs,
-        phone,
-        desktop,
-        scroll,
-        refreshKey,
-      ),
+    if (bar == null) return content;
+    return Column(
+      children: [
+        bar,
+        Expanded(child: content),
+      ],
     );
   }
 
@@ -506,8 +516,6 @@ class ExplorePageState extends State<ExplorePage> {
                       ),
                     ),
             ),
-            if (_filterBar(explore, tab, inset) case final bar?)
-              SliverToBoxAdapter(child: bar),
             SliverPadding(
               padding: EdgeInsets.fromLTRB(inset, desktop ? 20 : 16, inset, 0),
               sliver: DramaSliverGrid(

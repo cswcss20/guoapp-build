@@ -4,6 +4,7 @@ import '../../core_bridge.dart';
 import '../../local_store.dart';
 import '../../models.dart';
 import '../../source_modules.dart';
+import '../../zh_script.dart';
 import '../app_scope.dart';
 import '../widgets/focus_ring.dart';
 
@@ -111,7 +112,7 @@ Future<void> offerRestoredModules(
     ),
   );
   if (accepted != true) return;
-  messenger.showSnackBar(SnackBar(content: Text('正在安装 ${entries.length} 个模块')));
+  messenger.showSnackBar(SnackBar(content: Text(zh('正在安装 ${entries.length} 个模块'))));
   final summary = await installIndexedModules(
     repository,
     store,
@@ -137,27 +138,32 @@ class BatchInstallDialog extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final adult = entries.where((entry) => entry.adult).length;
     return AlertDialog(
-      title: Text(title),
+      title: Text(zh(title)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           spacing: 8,
           children: [
-            Text(message),
-            const Text('各站源可访问的域名和功能，安装后可在「已安装」里查看。'),
+            Text(zh(message)),
+            Text(zh('各站源可访问的域名和功能，安装后可在「已安装」里查看。')),
             for (final entry in entries)
               Row(
                 spacing: 8,
                 children: [
-                  Expanded(child: Text('${entry.name} · ${entry.version}')),
+                  Expanded(
+                    child: Text(zh('${entry.name} · ${entry.version}')),
+                  ),
                   if (entry.adult)
-                    Text('限制级', style: TextStyle(color: colors.error)),
+                    Text(zh('限制级'), style: TextStyle(color: colors.error)),
                 ],
               ),
             if (adult > 0)
-              Text('包含 $adult 个限制级站源。', style: TextStyle(color: colors.error)),
-            const Text('安装失败的会跳过，完成后提示结果。'),
+              Text(
+                zh('包含 $adult 个限制级站源。'),
+                style: TextStyle(color: colors.error),
+              ),
+            Text(zh('安装失败的会跳过，完成后提示结果。')),
           ],
         ),
       ),
@@ -167,14 +173,14 @@ class BatchInstallDialog extends StatelessWidget {
           child: TextButton(
             autofocus: true,
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(zh('取消')),
           ),
         ),
         FocusRing(
           radius: 20,
           child: FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('全部安装'),
+            child: Text(zh('全部安装')),
           ),
         ),
       ],

@@ -272,6 +272,26 @@ func (p *jsProvider) SearchWithWarning(ctx context.Context, page int, query stri
 	return result.Items, result.HasMore, result.Warning, err
 }
 
+// SearchFiltered passes the user's filter picks ({groupId: optionId})
+// to the module's search as a third argument. With no picks it is exactly
+// Search, so modules without filter support are unaffected.
+func (p *jsProvider) SearchFiltered(ctx context.Context, page int, query string, filters map[string]string) ([]Drama, bool, error) {
+	items, more, _, err := p.SearchWithWarningFiltered(ctx, page, query, filters)
+	return items, more, err
+}
+
+// SearchWithWarningFiltered passes the user's filter picks to the
+// module's search as a third argument. With no picks it is exactly
+// SearchWithWarning.
+func (p *jsProvider) SearchWithWarningFiltered(ctx context.Context, page int, query string, filters map[string]string) ([]Drama, bool, string, error) {
+	if len(filters) == 0 {
+		return p.SearchWithWarning(ctx, page, query)
+	}
+	var result jsDramaPage
+	err := p.call(ctx, "search", &result, page, query, filters)
+	return result.Items, result.HasMore, result.Warning, err
+}
+
 func (p *jsProvider) Detail(ctx context.Context, sourceID string) (Drama, []Chapter, error) {
 	var result jsDetail
 	err := p.call(ctx, "detail", &result, sourceID)

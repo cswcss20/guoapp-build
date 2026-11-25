@@ -178,7 +178,7 @@ class _ModulesPageState extends State<ModulesPage>
       builder: (_) => _ModuleDialog(module: module, install: true),
     );
     if (accepted != true) return;
-    _show(await _applyInstall(module) ?? '${module.name} 已安装');
+    _show(await _applyInstall(module) ?? zh('${module.name} 已安装'));
   }
 
   Future<String?> _applyInstall(SourceModule module) =>
@@ -210,7 +210,7 @@ class _ModulesPageState extends State<ModulesPage>
     if (location == null) {
       final size = await file.length();
       if (size == null || size > 8 * 1024 * 1024) {
-        throw AppFailure('安装包过大或无法读取');
+        throw AppFailure(zh('安装包过大或无法读取'));
       }
       location = path.join(
         (await getApplicationCacheDirectory()).path,
@@ -240,22 +240,24 @@ class _ModulesPageState extends State<ModulesPage>
     final accepted = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('卸载 ${module.name}？'),
-        content: const Text('该站源的追剧、观看记录和已下载视频会保留，但在重新安装前不再显示，正在下载的集会暂停。'),
+        title: Text(zh('卸载 ${module.name}？')),
+        content: Text(
+          zh('该站源的追剧、观看记录和已下载视频会保留，但在重新安装前不再显示，正在下载的集会暂停。'),
+        ),
         actions: [
           FocusRing(
             radius: 20,
             child: TextButton(
               autofocus: true,
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
+              child: Text(zh('取消')),
             ),
           ),
           FocusRing(
             radius: 20,
             child: FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('卸载'),
+              child: Text(zh('卸载')),
             ),
           ),
         ],
@@ -269,7 +271,7 @@ class _ModulesPageState extends State<ModulesPage>
       await _repository.controlDownloads('pauseSource', id: module.id);
     }
     await _repository.uninstallModule(module.id);
-    _show('${module.name} 已卸载');
+    _show(zh('${module.name} 已卸载'));
   });
 
   Future<void> _toggle(SourceModule module, bool value) {
@@ -417,7 +419,7 @@ class _ModulesPageState extends State<ModulesPage>
       if (modules == null && _error == null)
         const _Loading()
       else if (modules != null && modules.isEmpty)
-        const _Note('还没有安装模块。站源以模块的形式提供，可以从在线仓库、内置或手动安装。')
+        _Note(zh('还没有安装模块。站源以模块的形式提供，可以从在线仓库、内置或手动安装。'))
       else if (modules != null)
         for (final module in modules) card(module),
     ]);
@@ -460,9 +462,9 @@ class _ModulesPageState extends State<ModulesPage>
       else if (_index == null || _modules == null)
         const _Loading()
       else if (listed.isEmpty && warning.isEmpty)
-        _Note(bundled ? '这个安装包没有内置模块。' : '仓库里还没有模块。')
+        _Note(zh(bundled ? '这个安装包没有内置模块。' : '仓库里还没有模块。'))
       else if (entries.isEmpty && listed.isNotEmpty)
-        _Note(bundled ? '内置模块都已安装。' : '仓库里的模块都已安装。')
+        _Note(zh(bundled ? '内置模块都已安装。' : '仓库里的模块都已安装。'))
       else
         for (final entry in entries)
           _IndexCard(
@@ -500,7 +502,7 @@ class _ModulesPageState extends State<ModulesPage>
   Widget? _refreshButton() => _tabs.index == 1
       ? BarButton(
           icon: Icons.refresh_rounded,
-          tooltip: '刷新',
+          tooltip: zh('刷新'),
           onPressed: _index == null && _indexError == null ? null : _loadIndex,
         )
       : null;
@@ -516,7 +518,7 @@ class _ModulesPageState extends State<ModulesPage>
         fontSize: 15,
         fontWeight: FontWeight.w500,
       ),
-      tabs: [for (final label in _tabLabels) Tab(text: label)],
+      tabs: [for (final label in _tabLabels) Tab(text: zh(label))],
     ),
   );
 
@@ -591,7 +593,7 @@ class _ModulesPageState extends State<ModulesPage>
             child: Padding(
               padding: const EdgeInsets.only(left: 8),
               child: Text(
-                '模块',
+                zh('模块'),
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -639,7 +641,7 @@ class _ModulesPageState extends State<ModulesPage>
                 child: Semantics(
                   header: true,
                   child: Text(
-                    _tabLabels[_tabs.index],
+                    zh(_tabLabels[_tabs.index]),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -703,7 +705,7 @@ class _ModulesPageState extends State<ModulesPage>
         ? _television()
         : Scaffold(
             appBar: AppBar(
-              title: const Text('模块'),
+              title: Text(zh('模块')),
               actions: [?_refreshButton(), const SizedBox(width: 8)],
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(48),
@@ -762,8 +764,8 @@ class _ModuleCard extends StatelessWidget {
           child: _ModuleTitle(zh(name), adult: adult),
         ),
         const SizedBox(height: 2),
-        Text('版本：${version.isEmpty ? '未标注' : version}', style: meta),
-        Text('标识：$id', style: meta),
+        Text(zh('版本：${version.isEmpty ? '未标注' : version}'), style: meta),
+        Text(zh('标识：$id'), style: meta),
         if (body.isNotEmpty) ...[const SizedBox(height: 6), ...body],
       ],
     );
@@ -885,7 +887,7 @@ class _InstalledCard extends StatelessWidget {
           if (module.description.isNotEmpty) Text(zh(module.description)),
           if (update case final update?)
             Text(
-              '可更新到 ${update.version}',
+              zh('可更新到 ${update.version}'),
               style: TextStyle(color: colors.primary),
             ),
         ],
@@ -919,14 +921,14 @@ class _InstalledCard extends StatelessWidget {
                     style: _cardButton(colors, primary: true),
                     onPressed: onUpdate,
                     icon: const Icon(Icons.cloud_upload_outlined),
-                    label: const Text('更新'),
+                    label: Text(zh('更新')),
                   ),
                 ),
                 FocusRing(
                   radius: 20,
                   child: IconButton.filledTonal(
                     visualDensity: VisualDensity.compact,
-                    tooltip: '卸载',
+                    tooltip: zh('卸载'),
                     onPressed: onUninstall,
                     icon: const Icon(Icons.delete_outline_rounded),
                   ),
@@ -938,7 +940,7 @@ class _InstalledCard extends StatelessWidget {
                     style: _cardButton(colors),
                     onPressed: onUninstall,
                     icon: const Icon(Icons.delete_outline_rounded),
-                    label: const Text('卸载'),
+                    label: Text(zh('卸载')),
                   ),
                 ),
             ],
@@ -968,7 +970,7 @@ class _IndexCard extends StatelessWidget {
       body: [
         if (entry.description.isNotEmpty) Text(zh(entry.description)),
         if (records != null)
-          Text('待恢复：$records', style: TextStyle(color: colors.primary)),
+          Text(zh('待恢复：$records'), style: TextStyle(color: colors.primary)),
       ],
       trailing: FocusRing(
         radius: 20,
@@ -976,7 +978,7 @@ class _IndexCard extends StatelessWidget {
           style: _cardButton(colors, primary: true),
           onPressed: onInstall,
           icon: const Icon(Icons.download_rounded),
-          label: const Text('安装'),
+          label: Text(zh('安装')),
         ),
       ),
     );
@@ -1004,7 +1006,7 @@ class _ModuleTitle extends StatelessWidget {
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
-            '限制级',
+            zh('限制级'),
             style: theme.textTheme.labelSmall?.copyWith(
               color: colors.onErrorContainer,
               fontWeight: FontWeight.w600,
@@ -1023,22 +1025,28 @@ List<(String, String, int)> _moduleFacts(
   final version = module.version.isEmpty ? '未标注' : module.version;
   return [
     (
-      '版本',
+      zh('版本'),
       install && module.installed
-          ? '${module.previous.isEmpty ? '未标注' : module.previous} → $version'
-          : version,
+          ? zh(
+            '${module.previous.isEmpty ? '未标注' : module.previous} → $version',
+          )
+          : zh(version),
       1,
     ),
-    ('标识', module.id, 1),
-    ('内容分级', module.adult ? '限制级' : '非限制级', 1),
-    ('可访问的域名', module.hosts.isEmpty ? '无' : module.hosts.join('\n'), 1),
+    (zh('标识'), module.id, 1),
+    (zh('内容分级'), zh(module.adult ? '限制级' : '非限制级'), 1),
     (
-      '提供的功能',
-      [
+      zh('可访问的域名'),
+      module.hosts.isEmpty ? zh('无') : module.hosts.join('\n'),
+      1,
+    ),
+    (
+      zh('提供的功能'),
+      zh([
         '目录、详情和播放',
         for (final name in module.capabilities)
           moduleCapabilityNames[name] ?? name,
-      ].join('、'),
+      ].join('、')),
       2,
     ),
   ];
@@ -1237,11 +1245,13 @@ class _ModuleDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: Text(
-      !install
-          ? module.name
-          : module.installed
-          ? '更新 ${module.name}？'
-          : '安装 ${module.name}？',
+      zh(
+        !install
+            ? module.name
+            : module.installed
+            ? '更新 ${module.name}？'
+            : '安装 ${module.name}？',
+      ),
     ),
     content: _ModuleDetails(module: module, install: install),
     actions: [
@@ -1251,14 +1261,14 @@ class _ModuleDialog extends StatelessWidget {
           child: TextButton(
             autofocus: true,
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(zh('取消')),
           ),
         ),
         FocusRing(
           radius: 20,
           child: FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(module.installed ? '更新' : '安装'),
+            child: Text(zh(module.installed ? '更新' : '安装')),
           ),
         ),
       ] else
@@ -1267,7 +1277,7 @@ class _ModuleDialog extends StatelessWidget {
           child: TextButton(
             autofocus: true,
             onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
+            child: Text(zh('关闭')),
           ),
         ),
     ],
@@ -1306,7 +1316,7 @@ class _ModuleMenu extends StatelessWidget {
             Text(module.error, style: TextStyle(color: colors.error)),
           if (update case final update?)
             Text(
-              '可更新到 ${update.version}',
+              zh('可更新到 ${update.version}'),
               style: TextStyle(color: colors.primary),
             ),
         ],
@@ -1325,7 +1335,7 @@ class _ModuleMenu extends StatelessWidget {
             child: FilledButton.tonalIcon(
               onPressed: onUpdate,
               icon: const Icon(Icons.cloud_upload_outlined),
-              label: const Text('更新'),
+              label: Text(zh('更新')),
             ),
           ),
         FocusRing(
@@ -1334,7 +1344,7 @@ class _ModuleMenu extends StatelessWidget {
             autofocus: toggle == null,
             onPressed: onUninstall,
             icon: const Icon(Icons.delete_outline_rounded),
-            label: const Text('卸载'),
+            label: Text(zh('卸载')),
           ),
         ),
         FocusRing(
@@ -1347,7 +1357,7 @@ class _ModuleMenu extends StatelessWidget {
                   ? Icons.block_rounded
                   : Icons.check_circle_outline_rounded,
             ),
-            label: Text(enabled ? '禁用' : '启用'),
+            label: Text(zh(enabled ? '禁用' : '启用')),
           ),
         ),
       ],
@@ -1375,7 +1385,7 @@ class _AddressDialogState extends State<_AddressDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('从地址安装'),
+    title: Text(zh('从地址安装')),
     content: FormTextField(
       controller: _controller,
       autofocus: true,
@@ -1388,12 +1398,12 @@ class _AddressDialogState extends State<_AddressDialog> {
         radius: 20,
         child: TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(zh('取消')),
         ),
       ),
       FocusRing(
         radius: 20,
-        child: FilledButton(onPressed: _submit, child: const Text('下一步')),
+        child: FilledButton(onPressed: _submit, child: Text(zh('下一步'))),
       ),
     ],
   );

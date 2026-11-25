@@ -4,6 +4,7 @@ import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
 
+import 'package:crypto/crypto.dart';
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -311,6 +312,34 @@ class NativeRepository extends AppRepository {
         'settings': settings.toJson(),
       }),
     );
+  }
+
+  // Maps an arbitrary string to a `_read` scope segment. The scope becomes
+  // the Go read session, and validNativeRead only allows [0-9A-Za-z\-_:.]
+  // — a module-controlled string such as a category id (MissAV's 素人) or
+  // a filter option id (ikanbot's tv-热门) would otherwise make the whole
+  // read fail with "請求標記無效" while the caller silently keeps stale
+  // data. Safe strings pass through unchanged so scopes stay readable;
+  // anything else becomes a short hash (the scope is only a read-stream
+  // identity, so a hash distinguishes categories/options just as well).
+  static String _scopeSegment(String value) {
+    if (value.isEmpty) return '';
+    var safe = true;
+    for (var i = 0; i < value.length; i++) {
+      final c = value.codeUnitAt(i);
+      if (!(c >= 48 && c <= 57 ||
+          c >= 97 && c <= 122 ||
+          c >= 65 && c <= 90 ||
+          c == 45 ||
+          c == 95 ||
+          c == 58 ||
+          c == 46)) {
+        safe = false;
+        break;
+      }
+    }
+    if (safe) return value;
+    return 'h${sha256.convert(utf8.encode(value)).toString().substring(0, 16)}';
   }
 
   Future<Map<String, dynamic>> _read(
@@ -978,7 +1007,10 @@ class NativeRepository extends AppRepository {
     String source, {
     String category = '',
   }) async {
-    final result = await _read('filters-$source-$category', {
+    // NOTE: the category itself still travels in the request body below;
+    // only the scope is sanitised — a raw category id such as 素人 would
+    // fail validNativeRead and the filters call would never reach Go.
+    final result = await _read('filters-$source-${_scopeSegment(category)}', {
       'action': 'filters',
       'source': source,
       'category': category,
@@ -1011,7 +1043,10 @@ class NativeRepository extends AppRepository {
               // validNativeRead only allows [0-9A-Za-z\-_:.] — '=' and '&'
               // would make every filtered catalog request fail with
               // "請求標記無效" while the feed silently keeps its old items.
-              : '-f${filters.entries.map((entry) => '${entry.key}-${entry.value}').join('.')}'),
+              // The same applies to module-declared option ids: a CJK id
+              // such as ikanbot's tv-热门 would break the read, so each
+              // key/value goes through _scopeSegment first.
+              : '-f${filters.entries.map((entry) => '${_scopeSegment(entry.key)}-${_scopeSegment(entry.value)}').join('.')}'),
       {
         'action': 'catalog',
         'source': source,

@@ -101,6 +101,20 @@ type FilteredCataloger interface {
 	CatalogPageFiltered(ctx context.Context, page int, category string, filters map[string]string) ([]Drama, bool, error)
 }
 
+// FilteredSearcher is an optional provider capability: the module's
+// search accepts the user's filter picks as a third argument. Asserted
+// directly (not via providerAs), like FilteredCataloger, because modules
+// do not declare it in their manifest capabilities.
+type FilteredSearcher interface {
+	SearchFiltered(ctx context.Context, page int, query string, filters map[string]string) ([]Drama, bool, error)
+}
+
+// FilteredWarningSearcher is the warning-carrying counterpart of
+// FilteredSearcher, mirroring WarningSearcher.
+type FilteredWarningSearcher interface {
+	SearchWithWarningFiltered(ctx context.Context, page int, query string, filters map[string]string) ([]Drama, bool, string, error)
+}
+
 type CatalogStateful interface {
 	CatalogState() json.RawMessage
 	RestoreCatalogState(raw json.RawMessage)

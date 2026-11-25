@@ -105,6 +105,13 @@ class SourceCatalog {
   Future<List<CatalogFilterGroup>> filters(CatalogCategory category) =>
       repository.catalogFilters(source.id, category: _request(category));
 
+  /// Filter groups the source module declares for search. Search has no
+  /// category, so this asks with the empty category (valid for the filters
+  /// action); modules whose groups do not depend on the category — e.g.
+  /// MissAV — return the same groups as on catalog tabs.
+  Future<List<CatalogFilterGroup>> searchFilters() =>
+      repository.catalogFilters(source.id);
+
   Future<CatalogPage> recommendations({
     bool more = false,
     bool force = false,
@@ -115,11 +122,16 @@ class SourceCatalog {
     force: force,
   );
 
-  Future<CatalogPage> search(String query, {int page = 1}) async {
+  Future<CatalogPage> search(
+    String query, {
+    int page = 1,
+    Map<String, String> filters = const {},
+  }) async {
     final result = await repository.catalog(
       source.id,
       query: query,
       page: page,
+      filters: filters,
     );
     return CatalogPage(
       result.items,

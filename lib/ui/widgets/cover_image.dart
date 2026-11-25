@@ -76,6 +76,12 @@ class DramaCover extends StatelessWidget {
             drama: drama,
             repository: AppScope.of(context).repository,
             placeholder: placeholder,
+            // 潮流AV 的縮圖是橫幅 DVD 封面（主體在右邊三分一），2:3 直身
+            // 卡片置中裁切會切走主體，改為靠右裁切，顯示最右邊的部分。
+            // 其他來源的封面維持置中。
+            alignment: drama.source == 'chaoliu'
+                ? Alignment.centerRight
+                : Alignment.center,
           ),
       ],
     );
@@ -186,11 +192,13 @@ class CoverImage extends StatefulWidget {
     required this.repository,
     required this.placeholder,
     this.retryable = true,
+    this.alignment = Alignment.center,
   });
   final Drama drama;
   final AppRepository repository;
   final Widget placeholder;
   final bool retryable;
+  final AlignmentGeometry alignment;
 
   @override
   State<CoverImage> createState() => _CoverImageState();
@@ -330,6 +338,7 @@ class _CoverImageState extends State<CoverImage> {
   Widget _image(String path) => Image.file(
     File(path),
     fit: BoxFit.cover,
+    alignment: widget.alignment,
     cacheWidth: _decodeWidth,
     excludeFromSemantics: true,
     frameBuilder: fadeInFrameBuilder,

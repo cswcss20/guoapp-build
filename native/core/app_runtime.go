@@ -532,7 +532,36 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 	result := nativeCatalogResult{Items: []LibraryDrama{}, Page: page}
 	registered, hasProvider := d.provider(source)
 	if searcher, ok := providerAs[WarningSearcher](registered); ok && query != "" {
-		items, more, warning, err := searcher.SearchWithWarning(ctx, page, query)
+		var items []Drama
+		var more bool
+		var warning string
+		var err error
+		// A filtered search is a different query from the unfiltered one:
+		// the module is asked with the picks. Providers without the
+		// filtered capability silently fall back to the plain search,
+		// exactly like the catalog path.
+		if len(filters) > 0 {
+			if filtered, ok := registered.(FilteredWarningSearcher); ok {
+				items, more, warning, err = filtered.SearchWithWarningFiltered(
+					ctx,
+					page,
+					query,
+					filters,
+				)
+			} else {
+				items, more, warning, err = searcher.SearchWithWarning(
+					ctx,
+					page,
+					query,
+				)
+			}
+		} else {
+			items, more, warning, err = searcher.SearchWithWarning(
+				ctx,
+				page,
+				query,
+			)
+		}
 		if err != nil {
 			return result, err
 		}
@@ -543,7 +572,23 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 		return result, nil
 	}
 	if searcher, ok := providerAs[Searcher](registered); ok && query != "" {
-		items, more, err := searcher.Search(ctx, page, query)
+		var items []Drama
+		var more bool
+		var err error
+		if len(filters) > 0 {
+			if filtered, ok := registered.(FilteredSearcher); ok {
+				items, more, err = filtered.SearchFiltered(
+					ctx,
+					page,
+					query,
+					filters,
+				)
+			} else {
+				items, more, err = searcher.Search(ctx, page, query)
+			}
+		} else {
+			items, more, err = searcher.Search(ctx, page, query)
+		}
 		if err != nil {
 			return result, err
 		}
