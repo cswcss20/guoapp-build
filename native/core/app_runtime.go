@@ -609,7 +609,10 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 	if err != nil && len(items) == 0 {
 		return result, err
 	}
-	if len(items) == 0 && page == 1 && !allowEmptyCatalog {
+	// A filtered query can legitimately match nothing (e.g. Iceland + 1980
+	// on fourkvm); that is an empty page, not a broken source. Only an
+	// unfiltered empty first page is treated as "source returned nothing".
+	if len(items) == 0 && page == 1 && !allowEmptyCatalog && len(filters) == 0 {
 		return result, errors.New("站源暂未返回剧集，请稍后刷新")
 	}
 	if err != nil {
