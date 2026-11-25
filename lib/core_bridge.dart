@@ -1007,7 +1007,11 @@ class NativeRepository extends AppRepository {
           }) +
           (filters.isEmpty
               ? ''
-              : '-f${filters.entries.map((entry) => '${entry.key}=${entry.value}').join('&')}'),
+              // NOTE: the scope becomes the Go read session, and
+              // validNativeRead only allows [0-9A-Za-z\-_:.] — '=' and '&'
+              // would make every filtered catalog request fail with
+              // "請求標記無效" while the feed silently keeps its old items.
+              : '-f${filters.entries.map((entry) => '${entry.key}-${entry.value}').join('.')}'),
       {
         'action': 'catalog',
         'source': source,
