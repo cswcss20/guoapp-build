@@ -116,9 +116,10 @@ class PlaybackPreloader extends ChangeNotifier {
     Episode episode, {
     int quality = 0,
     bool online = false,
+    bool adBlock = true,
   }) {
     final result =
-        _identity == _key(drama, episode, quality, online) &&
+        _identity == _key(drama, episode, quality, online, adBlock) &&
             _now().isBefore(_expires)
         ? _ready
         : null;

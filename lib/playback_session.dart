@@ -887,6 +887,7 @@ class PlaybackSession extends ChangeNotifier {
             detail.episodes[index],
             quality: _quality,
             online: _online,
+            adBlock: store.playbackPreferences.adBlock,
           )
         : null;
     _preloader.clear();
@@ -1074,6 +1075,7 @@ class PlaybackSession extends ChangeNotifier {
       detail.episodes[next],
       quality: _quality,
       online: _online,
+      adBlock: store.playbackPreferences.adBlock,
     );
     if (plan == null) {
       _standbyIndex = -1;
