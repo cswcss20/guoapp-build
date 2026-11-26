@@ -16,6 +16,7 @@ import '../explore/explore_page.dart';
 import '../explore/source_actions.dart';
 import '../follow/follow_page.dart';
 import '../mine/mine_page.dart';
+import '../recommend/recommend_page.dart';
 import '../update_prompt.dart';
 import '../modules/module_install.dart';
 import '../widgets/bar_button.dart';
@@ -26,6 +27,7 @@ import '../widgets/source_bar.dart';
 
 enum AppTab {
   explore('发现', Icons.explore_outlined, Icons.explore),
+  recommend('推荐', Icons.play_circle_outline_rounded, Icons.play_circle_rounded),
   follow('追剧', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
   mine('我的', Icons.person_outline_rounded, Icons.person_rounded);
 
@@ -43,6 +45,24 @@ Future<T?> openPage<T>(BuildContext context, WidgetBuilder builder) =>
         FormFactor.pad || FormFactor.window => false,
       },
     ).push(MaterialPageRoute<T>(builder: builder));
+
+/// 标签页一旦挂进 [IndexedStack] 就会一直留在树里，页面自己看不出「我又被
+/// 切回来了」。需要「重新可见时自愈」的页面（比如推荐页换源后停在报错）依赖
+/// 这个 InheritedWidget 拿到当前标签。
+class ShellVisibleTab extends InheritedWidget {
+  const ShellVisibleTab({super.key, required this.tab, required super.child});
+
+  final AppTab tab;
+
+  /// 当前标签；不在 [AppShell] 里（比如单独测某个页面）时返回 null。
+  static AppTab? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ShellVisibleTab>()?.tab;
+
+  static AppTab of(BuildContext context) => maybeOf(context) ?? AppTab.explore;
+
+  @override
+  bool updateShouldNotify(ShellVisibleTab oldWidget) => tab != oldWidget.tab;
+}
 
 class ShellForeground extends InheritedWidget {
   const ShellForeground({
@@ -284,6 +304,7 @@ class _AppShellState extends State<AppShell> {
 
   Widget _root(AppTab tab) => switch (tab) {
     AppTab.explore => ExplorePage(key: _explore, store: widget.store),
+    AppTab.recommend => RecommendPage(store: widget.store),
     AppTab.follow => FollowPage(
       store: widget.store,
       entryFocus: _followEntry,
@@ -332,7 +353,7 @@ class _AppShellState extends State<AppShell> {
     );
     final pages = ShellForeground(
       foreground: ModalRoute.of(context)?.isCurrent ?? true,
-      child: stack,
+      child: ShellVisibleTab(tab: _tab, child: stack),
     );
     final television = AppScope.of(context).television;
     final tabs = _tabs;
@@ -399,7 +420,7 @@ class _AppShellState extends State<AppShell> {
                         final entry = switch (_tab) {
                           AppTab.follow => _followEntry,
                           AppTab.mine => _mineEntry,
-                          AppTab.explore => null,
+                          AppTab.explore || AppTab.recommend => null,
                         };
                         if (event is KeyUpEvent ||
                             event.logicalKey != LogicalKeyboardKey.arrowDown ||

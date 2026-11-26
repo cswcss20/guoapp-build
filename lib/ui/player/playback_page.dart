@@ -11,6 +11,7 @@ import '../../picture_in_picture.dart';
 import '../../playback_session.dart';
 import '../app_scope.dart';
 import 'audio_player_page.dart';
+import 'feed_player_page.dart';
 import 'landscape_player_page.dart';
 import 'mini_player.dart';
 import 'playback_handle.dart';
@@ -20,9 +21,19 @@ import 'television_player_page.dart';
 import 'window_fullscreen.dart';
 
 class PlaybackPage extends StatefulWidget {
-  const PlaybackPage({super.key, required this.store, required this.handle});
+  const PlaybackPage({
+    super.key,
+    required this.store,
+    required this.handle,
+    this.feed = false,
+    this.onOpenDetail,
+  });
   final LocalStore store;
   final PlaybackHandle handle;
+
+  /// 推荐流模式：整屏播放、控件交给沉浸式浮层，翻页由外层推荐页负责。
+  final bool feed;
+  final VoidCallback? onOpenDetail;
 
   @override
   State<PlaybackPage> createState() => _PlaybackPageState();
@@ -128,6 +139,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
       iosPlayer: iosVideo ? session.player : null,
       autoEnter:
           playing &&
+          !widget.feed &&
           !_television &&
           !_audio &&
           widget.store.playbackPreferences.autoPictureInPicture,
@@ -190,6 +202,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
   }
 
   KeyEventResult _key(FocusNode _, KeyEvent event) {
+    if (widget.feed) return KeyEventResult.ignored;
     final key = event.logicalKey;
     final size = MediaQuery.sizeOf(context);
     final form = AppScope.formFactorOf(context);
@@ -264,6 +277,13 @@ class _PlaybackPageState extends State<PlaybackPage> {
   }
 
   Widget _page(BuildContext context) {
+    if (widget.feed) {
+      return FeedPlayerPage(
+        store: widget.store,
+        handle: widget.handle,
+        onOpenDetail: widget.onOpenDetail,
+      );
+    }
     final form = AppScope.formFactorOf(context);
     final mini = _pip.available && (!Platform.isIOS || !_audio)
         ? () => unawaited(_enterMini())

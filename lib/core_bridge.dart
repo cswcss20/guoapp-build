@@ -158,6 +158,7 @@ abstract class AppRepository {
     String genre, {
     bool more = false,
     bool force = false,
+    String lane = '',
   }) async => throw AppFailure('当前环境不支持推荐');
   Future<List<RankingBoard>> rankingBoards() async => const [];
   Future<RankingPage> rankings(
@@ -507,10 +508,11 @@ class NativeRepository extends AppRepository {
     String genre, {
     bool more = false,
     bool force = false,
+    String lane = '',
   }) async {
     _authorize(source);
     return CatalogPage.fromJson(
-      await _read('recommendations-$source-$genre', {
+      await _read('recommendations-$source-$genre${lane.isEmpty ? '' : '-$lane'}', {
         'action': 'recommendations',
         'source': source,
         'category': genre,
