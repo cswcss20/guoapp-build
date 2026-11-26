@@ -21,6 +21,7 @@ import '../widgets/follow_button.dart';
 import '../widgets/focus_ring.dart';
 import '../widgets/motion/motion_widgets.dart';
 import '../widgets/search_field.dart';
+import '../widgets/self_heal.dart';
 import '../widgets/status_view.dart';
 
 class SearchPage extends StatefulWidget {
@@ -530,13 +531,15 @@ class _SearchPageState extends State<SearchPage> {
           title: '正在搜索',
         );
       } else if (results.error.isNotEmpty) {
-        return StatusView(
+        return ErrorStatusView(
           key: ValueKey('error'),
           title: '搜索失败',
           message: results.error,
           icon: Icons.cloud_off_rounded,
-          action: '重试',
-          onAction: () => results.reload(),
+          source: _source.id,
+          store: widget.store,
+          verify: webViewVerifier(context),
+          onRetry: () => results.reload(),
         );
       } else {
         return StatusView(

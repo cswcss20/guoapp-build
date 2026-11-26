@@ -13,6 +13,7 @@ class StatusView extends StatelessWidget {
     this.action,
     this.onAction,
     this.autofocus = false,
+    this.extra,
   }) : loading = false;
 
   const StatusView.loading({super.key, this.title = '正在加载'})
@@ -21,6 +22,7 @@ class StatusView extends StatelessWidget {
       action = null,
       onAction = null,
       autofocus = false,
+      extra = null,
       loading = true;
 
   final String title;
@@ -30,6 +32,9 @@ class StatusView extends StatelessWidget {
   final VoidCallback? onAction;
   final bool autofocus;
   final bool loading;
+
+  /// 主操作按钮下方的附加内容（例如自愈引导按钮组）。
+  final Widget? extra;
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +82,10 @@ class StatusView extends StatelessWidget {
                   child: Text(zh(action)),
                 ),
               ),
+            ],
+            if (extra case final extra?) ...[
+              const SizedBox(height: 12),
+              extra,
             ],
           ],
         ),

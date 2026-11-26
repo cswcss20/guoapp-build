@@ -24,6 +24,7 @@ import '../widgets/motion/motion_widgets.dart';
 import '../widgets/page_header.dart';
 import '../widgets/pull_refresh.dart';
 import '../widgets/source_bar.dart';
+import '../widgets/self_heal.dart';
 import '../widgets/status_view.dart';
 import 'explore_hero.dart';
 import 'source_actions.dart';
@@ -457,13 +458,15 @@ class ExplorePageState extends State<ExplorePage> {
       );
     }
     if (feed.error.isNotEmpty) {
-      return StatusView(
+      return ErrorStatusView(
         key: const ValueKey('error'),
         title: '暂时无法加载',
         message: feed.error,
         icon: Icons.cloud_off_rounded,
-        action: '重试',
-        onAction: () => feed.reload(force: true),
+        source: _explore?.source?.id ?? '',
+        store: widget.store,
+        verify: webViewVerifier(context),
+        onRetry: () => feed.reload(force: true),
       );
     }
     return StatusView(

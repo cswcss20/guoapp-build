@@ -20,6 +20,7 @@ import 'download_collections.dart';
 import 'resource_settings.dart';
 import 'diary_service.dart';
 import 'app_update.dart';
+import 'webview_bridge.dart';
 import 'sorani_account.dart';
 import 'source_modules.dart';
 
@@ -303,6 +304,25 @@ abstract class AppRepository {
   }
   Future<void> cancelPlayback();
   Future<void> release(String session);
+
+  // ---- 人机验证桥接：站源需要 Cloudflare 校验时用它 ----
+  /// 返回该站源建议打开的验证地址；没有可用地址时返回空串。
+  Future<String> sourceChallengeUrl(String source) async => '';
+
+  /// 登记 WebView 回环抓取端口与验证后的 Cookie / UA，核心之后会用它取页面。
+  Future<void> registerWebViewBridge({
+    required int port,
+    required String url,
+    required String source,
+    String cookies = '',
+    String userAgent = '',
+  }) async {}
+
+  /// 当前平台是否支持应用内浏览器完成人机验证。
+  bool get supportsWebViewVerify => false;
+
+  /// 打开应用内验证页，通过后把 Cookie / UA 交给核心。
+  Future<bool> verifySource(String source) async => false;
 }
 
 class NativeRepository extends AppRepository {
@@ -719,6 +739,40 @@ class NativeRepository extends AppRepository {
       'account': payload,
     });
   }
+
+  @override
+  Future<String> sourceChallengeUrl(String source) async {
+    final result = await _call({
+      'action': 'sourceChallengeUrl',
+      'source': source,
+    });
+    return result['url'] as String? ?? '';
+  }
+
+  @override
+  Future<void> registerWebViewBridge({
+    required int port,
+    required String url,
+    required String source,
+    String cookies = '',
+    String userAgent = '',
+  }) async {
+    await _call({
+      'action': 'webViewBridge',
+      'index': port,
+      'url': url,
+      'source': source,
+      'token': cookies,
+      'device': userAgent,
+    });
+  }
+
+  @override
+  bool get supportsWebViewVerify => WebViewBridge.supported;
+
+  @override
+  Future<bool> verifySource(String source) =>
+      WebViewBridge.verifySource(this, source);
 
   void _soraniPermission() {
     if (access != null && (access!.locked || !access!.profile.admin)) {

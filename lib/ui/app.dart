@@ -8,6 +8,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import '../app_build.dart';
 import '../app_device.dart';
 import '../core_bridge.dart';
+import '../web_verify.dart';
+import '../webview_bridge.dart';
 import '../local_store.dart';
 import '../theme_color.dart';
 import '../zh_script.dart';
@@ -56,6 +58,7 @@ class _DuanjuAppState extends State<DuanjuApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WebViewBridge.navigatorKey = _navigator;
     WidgetsBinding.instance.addObserver(this);
     FocusManager.instance
       ..addEarlyKeyEventHandler(_blockKeyboardFocus)
@@ -326,7 +329,9 @@ class _DuanjuAppState extends State<DuanjuApp> with WidgetsBindingObserver {
                           policy: ReadingOrderTraversalPolicy(
                             requestFocusCallback: revealFocus,
                           ),
-                          child: child!,
+                          // 隐藏浏览器挂在导航器外层：验证页盖住整屏，
+                          // 落地后自己收起，不影响页面栈。
+                          child: WebVerifyHost(child: child!),
                         ),
                       ),
                     );

@@ -87,11 +87,43 @@ func (d *Downloader) providerURLCandidates(ctx context.Context, raw string) []st
 	return candidates
 }
 
+// BrowserVerifyPrefix 标记「需要先用浏览器完成验证」的分集地址。
+//
+// 站源把 videoUrl 写成 browser://<短链地址> 时，应用先用隐藏浏览器走完
+// Cloudflare 挑战，把落地地址写回 pageUrl，再调用 resolveMedia 取直链。
+const BrowserVerifyPrefix = "browser://"
+
+// BrowserVerifyError 表示这一集需要先在浏览器里完成验证。
+// 应用据此启动隐藏浏览器，而不是当成普通失败。
+type BrowserVerifyError struct {
+	// Address 是 browser:// 后面的短链地址。
+	Address string
+}
+
+func (err BrowserVerifyError) Error() string {
+	return "这一集需要在应用内浏览器完成验证后才能播放"
+}
+
+// browserVerifyAddress 判断分集地址是不是 browser:// 短链，返回后面的地址。
+func browserVerifyAddress(videoURL string) (string, bool) {
+	trimmed := strings.TrimSpace(videoURL)
+	if !strings.HasPrefix(trimmed, BrowserVerifyPrefix) {
+		return "", false
+	}
+	address := strings.TrimSpace(strings.TrimPrefix(trimmed, BrowserVerifyPrefix))
+	return address, address != ""
+}
+
 func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (ProviderMedia, error) {
 	chapter := task.Chapter
 	chapter.Source = canonicalProviderSource(chapter.Source)
 	if chapter.Source == "" {
 		chapter.Source = SourceFromDramaID(task.DramaID)
+	}
+	// 分集地址带 browser:// 前缀时，先让应用去走浏览器验证。
+	// 落地地址会被写回 pageUrl，此时 videoUrl 已清空，才继续正常解析。
+	if address, needed := browserVerifyAddress(chapter.VideoURL); needed {
+		return ProviderMedia{}, BrowserVerifyError{Address: address}
 	}
 	p, ok := d.provider(chapter.Source)
 	if !ok {
@@ -123,6 +155,18 @@ func (d *Downloader) finishProviderMedia(ctx context.Context, media ProviderMedi
 }
 
 func (d *Downloader) fetchProviderRequest(ctx context.Context, rawURL, referer string, payload []byte) (string, error) {
+	// 命中 WebView 验证桥接的域名时，改走应用内浏览器取页面：Cloudflare 挑战
+	// 只有真实浏览器内核能过，普通 HTTP 请求会一直拿到 Just a moment 页面。
+	if payload == nil {
+		if html, finalURL, handled, err := webViewBridgeFetch(ctx, rawURL); handled {
+			if err == nil {
+				if responses, ok := ctx.Value(playbackResponseURLsKey{}).(*playbackResponseURLs); ok && responses != nil {
+					responses.values.Store(rawURL, finalURL)
+				}
+			}
+			return html, err
+		}
+	}
 	retries := d.cfg.Retries
 	if retries <= 0 {
 		retries = 3
@@ -166,9 +210,12 @@ func (d *Downloader) fetchProviderRequest(ctx context.Context, rawURL, referer s
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Accept", "application/json")
 			}
+			bridgeCookie, bridgeUA := webViewBridgeHeaders(candidate)
 			req.Header.Set("User-Agent", UserAgent)
 			if agent, ok := ctx.Value(providerTextUserAgentKey{}).(string); ok && agent != "" {
 				req.Header.Set("User-Agent", agent)
+			} else if bridgeUA != "" {
+				req.Header.Set("User-Agent", bridgeUA)
 			}
 			if ProviderSourceForURL(rawURL) != "" {
 				req.Header.Set("Referer", providerRefererForURL(candidate, referer))
@@ -178,6 +225,8 @@ func (d *Downloader) fetchProviderRequest(ctx context.Context, rawURL, referer s
 			req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
 			if cookie, ok := ctx.Value(providerTextCookieKey{}).(string); ok && cookie != "" {
 				req.Header.Set("Cookie", cookie)
+			} else if bridgeCookie != "" {
+				req.Header.Set("Cookie", bridgeCookie)
 			}
 			if noCache, _ := ctx.Value(providerTextNoCacheKey{}).(bool); noCache {
 				req.Header.Set("Cache-Control", "no-cache")

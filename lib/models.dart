@@ -506,6 +506,7 @@ class PlaybackPlan {
     this.routeIndex = 0,
     this.routeCount = 1,
     this.local = false,
+    this.verify = '',
   });
   final String url;
   final Map<String, String> headers;
@@ -521,6 +522,9 @@ class PlaybackPlan {
   final int routeIndex;
   final int routeCount;
   final bool local;
+
+  /// 非空表示这一集要先用浏览器完成验证；值是 browser:// 后面的短链地址。
+  final String verify;
   bool get hasAlternative => session.isNotEmpty && routeIndex + 1 < routeCount;
   factory PlaybackPlan.fromJson(Map<String, dynamic> json) => PlaybackPlan(
     url: json['url'] as String? ?? '',
@@ -544,6 +548,7 @@ class PlaybackPlan {
     routeCount: intValue(json['routeCount']) > 0
         ? intValue(json['routeCount'])
         : 1,
+    verify: json['verify'] as String? ?? '',
   );
 }
 

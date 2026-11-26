@@ -23,6 +23,9 @@ type SourceDescriptor struct {
 	SkipVIPPrompt      bool
 	Aliases            []string
 	HostSuffixes       []string
+	// Hosts 是站源声明的可访问域名（模块清单 hosts 已归一后写在这里），
+	// 供 WebView 验证桥接按域名匹配。未声明时为 nil。
+	Hosts              []string
 	MatchesHost        func(host string) bool
 	BaseURL            string
 	AllowEmptyCatalog  bool

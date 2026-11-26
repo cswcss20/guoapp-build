@@ -184,6 +184,7 @@ func (module *jsModule) descriptor() SourceDescriptor {
 		SkipVIPPrompt:      module.manifest.SkipVIPPrompt,
 		Aliases:            module.manifest.Aliases,
 		HostSuffixes:       module.manifest.HostSuffixes,
+		Hosts:              module.manifest.Hosts,
 		BaseURL:            module.manifest.BaseURL,
 		NoHostRotation:     module.manifest.NoHostRotation,
 		KeepDetailEpisodes: module.manifest.KeepDetailEpisodes,
