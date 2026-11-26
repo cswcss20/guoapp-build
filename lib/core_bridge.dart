@@ -129,6 +129,7 @@ abstract class AppRepository {
     Episode episode, {
     int quality = 0,
     bool online = false,
+    bool adBlock = true,
   }) async => null;
   Future<List<CastDevice>> castDevices() async => throw AppFailure('当前环境不支持投屏');
   Future<void> castPlay(
@@ -239,7 +240,8 @@ abstract class AppRepository {
     Drama drama,
     Episode episode, {
     int quality = 0,
-  }) => resolve(drama, episode, quality: quality);
+    bool adBlock = true,
+  }) => resolve(drama, episode, quality: quality, adBlock: adBlock);
   Future<AppUpdate?> checkUpdate(String version) async => null;
   Future<bool> sourceDevices(String source, {bool register = false}) async =>
       true;
@@ -274,8 +276,26 @@ abstract class AppRepository {
   bool coverCached(Drama drama) => false;
   String? knownCover(Drama drama) => null;
   Future<DramaDetail> detail(Drama drama);
-  Future<PlaybackPlan> resolve(Drama drama, Episode episode, {int quality = 0});
+  Future<PlaybackPlan> resolve(
+    Drama drama,
+    Episode episode, {
+    int quality = 0,
+    bool adBlock = true,
+  });
   Future<PlaybackPlan> fallback(PlaybackPlan current);
+
+  /// 切到第 [route] 条线路（从 0 开始）。核心只认识「下一条」，
+  /// 这里沿 fallback 往前翻，翻不到就报错。
+  Future<PlaybackPlan> selectRoute(PlaybackPlan current, int route) async {
+    var plan = current;
+    for (var step = 0; step <= 8 && plan.routeIndex != route; step++) {
+      plan = await fallback(plan);
+    }
+    if (plan.routeIndex != route) {
+      throw AppFailure('线路切换失败，换一条试试');
+    }
+    return plan;
+  }
   Future<void> cancelPlayback();
   Future<void> release(String session);
 }
@@ -391,6 +411,7 @@ class NativeRepository extends AppRepository {
     Episode episode, {
     int quality = 0,
     bool online = false,
+    bool adBlock = true,
   }) async => PlaybackPlan.fromJson(
     await _read('preload', {
       'action': 'preload',
@@ -398,6 +419,7 @@ class NativeRepository extends AppRepository {
       'chapter': episode.raw,
       'index': episode.number,
       'quality': quality,
+      'adBlock': adBlock,
       'force': online || access?.canDownload == false,
     }),
   );
@@ -1145,6 +1167,7 @@ class NativeRepository extends AppRepository {
     Drama drama,
     Episode episode, {
     int quality = 0,
+    bool adBlock = true,
   }) async => PlaybackPlan.fromJson(
     await _call({
       'action': 'resolve',
@@ -1152,6 +1175,7 @@ class NativeRepository extends AppRepository {
       'chapter': episode.raw,
       'index': episode.number,
       'quality': quality,
+      'adBlock': adBlock,
       'sequence': ++_playbackSequence,
     }),
   );
@@ -1334,6 +1358,7 @@ class NativeRepository extends AppRepository {
     Drama drama,
     Episode episode, {
     int quality = 0,
+    bool adBlock = true,
   }) async => PlaybackPlan.fromJson(
     await _call({
       'action': 'resolve',
@@ -1341,6 +1366,7 @@ class NativeRepository extends AppRepository {
       'chapter': episode.raw,
       'index': episode.number,
       'quality': quality,
+      'adBlock': adBlock,
       'force': true,
       'sequence': ++_playbackSequence,
     }),

@@ -123,7 +123,7 @@ func TestCastStreamServesLanAddresses(t *testing.T) {
 	if origin == stream.address {
 		t.Fatal("局域网服务和本机播放服务用了同一个地址")
 	}
-	local, token := stream.nativeOpen("", ProviderMedia{URL: "https://media.example/video/index.m3u8", Playlist: "#EXTM3U\n#EXTINF:4,\nsegment-1.ts\n#EXT-X-ENDLIST"})
+	local, token := stream.nativeOpen("", ProviderMedia{URL: "https://media.example/video/index.m3u8", Playlist: "#EXTM3U\n#EXTINF:4,\nsegment-1.ts\n#EXT-X-ENDLIST"}, false)
 	defer stream.nativeRelease(token)
 	for address, prefix := range map[string]string{local: stream.address, origin + strings.TrimPrefix(local, stream.address): origin} {
 		response, err := http.Get(address)

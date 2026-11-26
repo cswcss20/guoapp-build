@@ -8,10 +8,13 @@ import 'package:media_kit/media_kit.dart';
 
 import '../../playback_preferences.dart';
 import '../../playback_session.dart';
+import '../../zh_script.dart';
 import '../app_scope.dart';
+import '../settings/settings_page.dart';
 import '../settings/sorani_account_view.dart';
 import '../theme/motion.dart';
 import '../widgets/contained_slider.dart';
+import '../widgets/cover_backdrop.dart';
 import '../widgets/motion/motion_widgets.dart';
 import 'cast_page.dart';
 import 'danmaku_overlay.dart';
@@ -30,7 +33,7 @@ String formatClock(Duration value) {
   return seconds >= 3600 ? '${seconds ~/ 3600}:$clock' : clock;
 }
 
-enum _Popup { quality, speed, fit, sleep, volume }
+enum _Popup { quality, route, speed, fit, sleep, volume }
 
 class PlayerSurface extends StatefulWidget {
   const PlayerSurface({
@@ -322,7 +325,10 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
     _session.endBoost();
   }
 
-  Future<void> _change(Future<void> Function() change) async {
+  Future<void> _change(
+    Future<void> Function() change, {
+    String failure = '播放偏好未能保存，请重试',
+  }) async {
     _close();
     widget.onSurface();
     try {
@@ -331,7 +337,7 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('播放偏好未能保存，请重试')));
+      ).showSnackBar(SnackBar(content: Text(zh(failure))));
     }
   }
 
@@ -770,6 +776,9 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
 
     final showSeek = fits(_iconSlot * 2);
     final showSettings = fits(_iconSlot);
+    final showRoute =
+        _session.hasRoutes &&
+        fits(_textSlot('线路 ${_session.routeIndex + 1}'));
     final showSpeed = fits(_textSlot(speed, bold: true));
     final showQuality = fits(_textSlot(_session.qualityLabel));
     final showWide = !widget.touch && !widget.fullscreen && fits(_iconSlot);
@@ -821,6 +830,15 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
               _session.qualityLabel,
               '清晰度',
               ready && !_session.local ? () => _open(_Popup.quality) : null,
+            ),
+          ),
+        if (showRoute)
+          _popupTarget(
+            _Popup.route,
+            _text(
+              zh('线路 ${_session.routeIndex + 1}'),
+              '播放线路',
+              ready ? () => _open(_Popup.route) : null,
             ),
           ),
         if (showSpeed)
@@ -1026,6 +1044,7 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
         label: (value) => value == 0 ? '自动' : _session.qualityText(value),
         onSelected: (value) => _change(() => _session.setQuality(value)),
       ),
+      _Popup.route => _routeOptions(),
       _Popup.fit => _options<VideoFit>(
         values: VideoFit.values,
         selected: _session.videoFit,
@@ -1045,6 +1064,45 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
       color: const Color(0xE0141414),
       borderRadius: BorderRadius.circular(12),
       child: Padding(padding: const EdgeInsets.all(6), child: body),
+    );
+  }
+
+  /// 线路列表：线路数量不定，超长时在面板内滚动而不是把弹层顶出屏幕。
+  Widget _routeOptions() {
+    final colors = Theme.of(context).colorScheme;
+    final count = _session.routeCount.clamp(1, 64);
+    final height = (count * 36.0 + 12).clamp(48.0, 300.0);
+    return SizedBox(
+      width: 132,
+      height: height,
+      child: ListView.builder(
+        padding: EdgeInsets.zero,
+        itemCount: count,
+        itemBuilder: (context, index) {
+          final current = index == _session.routeIndex;
+          return InkWell(
+            borderRadius: BorderRadius.circular(8),
+            hoverColor: Colors.white.withValues(alpha: .14),
+            onTap: () => _change(
+              () => _session.selectRoute(index),
+              failure: '线路切换失败，换一条试试',
+            ),
+            child: Container(
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              alignment: Alignment.center,
+              child: Text(
+                zh('线路 ${index + 1}'),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: current ? FontWeight.w700 : FontWeight.w500,
+                  color: current ? colors.primary : Colors.white,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -1280,22 +1338,46 @@ class PlaybackLoading extends StatelessWidget {
   final PlaybackSession session;
 
   @override
-  Widget build(BuildContext context) => ColoredBox(
-    color: Colors.black.withValues(alpha: .78),
-    child: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text(
-            session.loadingMessage,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+  Widget build(BuildContext context) {
+    // 首帧渲染前一直显示模糊封面 + 实时状态：纯黑屏会让用户以为卡死了，
+    // 尤其在切线路 / 换清晰度时这段等待更明显。
+    final message = session.loadingMessage.isEmpty
+        ? '正在缓冲视频…'
+        : session.loadingMessage;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(color: Colors.black.withValues(alpha: .88)),
+        CoverBackdrop(
+          drama: session.detail.drama,
+          sigma: 28,
+          opacity: .55,
+          overlay: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withValues(alpha: .45),
+              Colors.black.withValues(alpha: .75),
+            ],
           ),
-        ],
-      ),
-    ),
-  );
+        ),
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                zh(message),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class PlaybackFailure extends StatelessWidget {
@@ -1378,6 +1460,15 @@ class PlaybackFailure extends StatelessWidget {
                     TextButton(
                       onPressed: session.switchOnline,
                       child: const Text('改为在线播放'),
+                    ),
+                  // 所有线路都失败时最常见的两个原因是「该走代理的走了直连」或
+                  // 反过来，直接给个入口，省得用户翻设置。
+                  if (!session.localFailure)
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          openProxySettings(context, session.store),
+                      icon: const Icon(Icons.language_rounded, size: 18),
+                      label: Text(zh('网络代理')),
                     ),
                 ],
               ),

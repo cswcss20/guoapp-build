@@ -131,6 +131,7 @@ class PlaybackPreferences {
     this.autoPictureInPicture = false,
     this.backgroundPlayback = false,
     this.videoFit = VideoFit.auto,
+    this.adBlock = true,
   });
 
   final double speed;
@@ -169,6 +170,7 @@ class PlaybackPreferences {
   final bool autoPictureInPicture;
   final bool backgroundPlayback;
   final VideoFit videoFit;
+  final bool adBlock;
 
   bool preopens({required bool television}) => preopen ?? !television;
 
@@ -206,6 +208,7 @@ class PlaybackPreferences {
     bool? autoPictureInPicture,
     bool? backgroundPlayback,
     VideoFit? videoFit,
+    bool? adBlock,
   }) => PlaybackPreferences(
     speed: speed ?? this.speed,
     quality: quality ?? this.quality,
@@ -240,6 +243,7 @@ class PlaybackPreferences {
     autoPictureInPicture: autoPictureInPicture ?? this.autoPictureInPicture,
     backgroundPlayback: backgroundPlayback ?? this.backgroundPlayback,
     videoFit: videoFit ?? this.videoFit,
+    adBlock: adBlock ?? this.adBlock,
   );
 
   Map<String, dynamic> toJson() => {
@@ -276,6 +280,7 @@ class PlaybackPreferences {
     'autoPictureInPicture': autoPictureInPicture,
     'backgroundPlayback': backgroundPlayback,
     'videoFit': videoFit.name,
+    'adBlock': adBlock,
   };
 
   factory PlaybackPreferences.fromJson(Map<String, dynamic> value) {
@@ -346,6 +351,7 @@ class PlaybackPreferences {
       autoPictureInPicture: value['autoPictureInPicture'] as bool? ?? false,
       backgroundPlayback: value['backgroundPlayback'] as bool? ?? false,
       videoFit: VideoFit.values.asNameMap()[value['videoFit']] ?? VideoFit.auto,
+      adBlock: value['adBlock'] as bool? ?? true,
     );
   }
 }

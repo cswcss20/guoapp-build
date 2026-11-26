@@ -275,6 +275,10 @@ class PlaybackSession extends ChangeNotifier {
   bool _stalled = false;
   String _loadingMessage = '正在准备播放';
   String? _error;
+  String? _routeNotice;
+  Timer? _routeNoticeTimer;
+  bool _switchingRoute = false;
+  int? _routeRequest;
   String? _saveWarning;
   String? _savedProgressKey;
   bool _savedQuietly = false;
@@ -300,6 +304,12 @@ class PlaybackSession extends ChangeNotifier {
   Episode get episode => detail.episodes[_index];
   bool get loading => _loading;
   String get loadingMessage => _loadingMessage;
+  String? get routeNotice => _routeNotice;
+  int get routeIndex => _plan?.routeIndex ?? 0;
+  int get routeCount => _plan?.routeCount ?? 1;
+  bool get hasRoutes => !local && routeCount > 1;
+  bool get switchingRoute => _switchingRoute;
+  String get routeLabel => '线路 ${routeIndex + 1}/$routeCount';
   String? get error => _error;
   bool get localFailure => _localFailure;
   bool get loginRequired => _loginRequired;
@@ -557,6 +567,7 @@ class PlaybackSession extends ChangeNotifier {
       detail.episodes[_index + 1],
       quality: _quality,
       online: _online,
+      adBlock: store.playbackPreferences.adBlock,
     );
   }
 
@@ -744,6 +755,14 @@ class PlaybackSession extends ChangeNotifier {
       '[Play] 自动恢复 原因=$reason 处理=${action.name} 线路=${current.routeIndex + 1}/${current.routeCount}',
     );
     if (action != PlaybackRecoveryAction.stop) {
+      if (action == PlaybackRecoveryAction.alternative) {
+        _setRouteNotice(
+          '当前线路异常，已自动切换至线路 ${current.routeIndex + 2}/'
+          '${current.routeCount}',
+        );
+      } else if (action == PlaybackRecoveryAction.refresh) {
+        _setRouteNotice('当前线路卡顿，正在刷新播放地址…');
+      }
       await play(_index, position: position, recovery: action);
       return;
     }
@@ -891,6 +910,7 @@ class PlaybackSession extends ChangeNotifier {
     _localFailure = false;
     _loginRequired = false;
     _loadingMessage = switch (recovery) {
+      PlaybackRecoveryAction.alternative when _routeRequest != null => '正在切换线路',
       PlaybackRecoveryAction.alternative => '正在切换备用线路',
       PlaybackRecoveryAction.refresh => '正在重新获取播放地址',
       _ => '正在准备播放',
@@ -916,7 +936,10 @@ class PlaybackSession extends ChangeNotifier {
       });
       if (!_current(ticket)) return;
       prepared = retained != null
-          ? await _loader.fallback(retained!)
+          ? switch (_routeRequest) {
+              final route? => await _loader.selectRoute(retained!, route),
+              null => await _loader.fallback(retained!),
+            }
           : warmed != null
           ? await _loader.use(warmed)
           : await _loader.load(
@@ -924,6 +947,7 @@ class PlaybackSession extends ChangeNotifier {
               detail.episodes[index],
               quality: _quality,
               online: _online,
+              adBlock: store.playbackPreferences.adBlock,
             );
       if (prepared == null) return;
       final plan = prepared;
@@ -1522,6 +1546,43 @@ class PlaybackSession extends ChangeNotifier {
     );
   }
 
+  /// 显示一条几秒后自动消失的线路提示。
+  void _setRouteNotice(String text) {
+    _routeNoticeTimer?.cancel();
+    _routeNotice = text;
+    _notify();
+    _routeNoticeTimer = Timer(const Duration(seconds: 4), () {
+      _routeNotice = null;
+      _notify();
+    });
+  }
+
+  /// 手动切换线路：走与自动恢复同一条通道（先存进度、保留旧会话、装上新会话），
+  /// 进度保留，切完给一条文字提示。
+  Future<void> selectRoute(int route) async {
+    final current = _plan;
+    if (_closed || _switchingRoute || current == null || current.local) return;
+    if (!_usable || route < 0 || route >= routeCount) return;
+    if (route == current.routeIndex) return;
+    _switchingRoute = true;
+    _routeRequest = route;
+    _setRouteNotice('正在切换到线路 ${route + 1}/$routeCount');
+    try {
+      await play(
+        _index,
+        position: currentPosition,
+        recovery: PlaybackRecoveryAction.alternative,
+        playWhenReady: _error != null || player.state.playing,
+      );
+      // 用户手动换线不该算进「自动恢复已试过几条备线」的次数。
+      _recovery.reset();
+    } finally {
+      _routeRequest = null;
+      _switchingRoute = false;
+      _notify();
+    }
+  }
+
   Future<void> toggleDanmaku() async {
     if (!danmakuSupported) return;
     final enabled = !_danmakuEnabled;
@@ -1690,6 +1751,7 @@ class PlaybackSession extends ChangeNotifier {
     _sleepTimer?.cancel();
     _standbyIdleTimer?.cancel();
     _resumeTimer?.cancel();
+    _routeNoticeTimer?.cancel();
     if (_volumeTimer != null) _saveVolume();
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());

@@ -20,10 +20,12 @@ import '../widgets/follow_button.dart';
 import 'danmaku_overlay.dart';
 import 'episode_grid.dart';
 import 'fade_presence.dart';
+import 'level_drag.dart';
 import 'mini_player.dart';
 import 'playback_sheets.dart';
 import 'playback_handle.dart';
 import 'player_lock.dart';
+import 'player_overlays.dart';
 import 'player_surface.dart';
 import 'player_video.dart';
 import 'swipe_controls.dart';
@@ -308,6 +310,8 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
   }
 
   bool get _pinching => _pinchFrom != null;
+
+  bool get _levelsEnabled => _session.store.playbackPreferences.swipeLevels;
 
   double get _span {
     final [first, second, ...] = _pointers.values.toList();
@@ -621,6 +625,28 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
                 ),
               ),
             ),
+            // 左边竖滑调亮度、右边竖滑调音量：只挂在两侧窄边上，
+            // 中间照旧是 PageView 的「上下滑切集」，两边互不抢手势。
+            if (!_pinching && !_session.locked && _levelsEnabled) ...[
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: LevelDrag(
+                  kind: LevelKind.brightness,
+                  alignment: Alignment.centerLeft,
+                ),
+              ),
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                child: LevelDrag(
+                  kind: LevelKind.volume,
+                  alignment: Alignment.centerRight,
+                ),
+              ),
+            ],
           ],
         ],
       ),
@@ -732,6 +758,9 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
                 : null,
           ),
         ),
+        // 线路切换提示：放在进度条上方，不挡选集条与底部控件。
+        if (session.routeNotice case final notice?)
+          PlayerRouteNoticeBadge(text: notice, bottom: bottom + 104),
         Positioned(
           key: const ValueKey('progress'),
           left: 16,

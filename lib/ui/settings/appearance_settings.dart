@@ -173,14 +173,6 @@ class AppearanceSettings extends StatelessWidget {
           children: [
             if (!AppScope.of(context).television) ...[
               SwitchTile(
-                title: '在主页底栏显示历史',
-                subtitle: '关闭后仍可在「我的」里打开观看记录',
-                value: store.historyTab,
-                onChanged: (value) =>
-                    saveSetting(context, () => store.setHistoryTab(value)),
-              ),
-              const Divider(indent: 16, endIndent: 16),
-              SwitchTile(
                 title: '在主页显示「继续观看」',
                 subtitle: '探索页顶部显示未看完的剧集大图',
                 value: store.heroResume,

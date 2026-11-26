@@ -220,6 +220,13 @@ class SettingsSection extends StatelessWidget {
           ),
           if (Platform.isAndroid) const _RenderingTile(),
           SwitchTile(
+            title: '去广告',
+            subtitle: '剔除播放列表里插播的广告分片；整段贴片无法与正片区分，不做处理',
+            value: preferences.adBlock,
+            onChanged: (value) =>
+                savePreferences(preferences.copyWith(adBlock: value)),
+          ),
+          SwitchTile(
             title: '预开下一集',
             subtitle: '提前打开下一集的播放器，切集无需等待',
             value: preferences.preopens(television: television),

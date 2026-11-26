@@ -21,10 +21,11 @@ type nativePlaybackChoice struct {
 	qualityLabels map[int]string
 	streamSession string
 	created       time.Time
+	adBlock       bool
 }
 
 func nativePlaybackChoices(media ProviderMedia, quality int) nativePlaybackChoice {
-	choice := nativePlaybackChoice{qualities: []int{}}
+	choice := nativePlaybackChoice{qualities: []int{}, adBlock: true}
 	seen := map[string]bool{}
 	qualities := map[int]bool{}
 	labels := map[int][]string{}
@@ -126,7 +127,7 @@ func (engine *nativeEngine) nativeOpenPlayback(ctx context.Context, choice nativ
 	if err := stream.ensureLoopback(ctx); err != nil {
 		return nativePlan{}, err
 	}
-	plan.URL, choice.streamSession = stream.nativeOpen(choice.source, media)
+	plan.URL, choice.streamSession = stream.nativeOpen(choice.source, media, choice.adBlock)
 	choice.created = time.Now()
 	engine.mu.Lock()
 	if engine.playbacks == nil {

@@ -99,6 +99,9 @@ type nativeInput struct {
 	File            string                  `json:"file"`
 	URL             string                  `json:"url"`
 	Token           string                  `json:"token"`
+	// AdBlock 控制 m3u8 广告分片过滤。缺省（nil）按开启处理，
+	// 与播放设置里的默认值一致。
+	AdBlock *bool `json:"adBlock"`
 }
 
 type nativeCatalogResult struct {
@@ -722,6 +725,9 @@ func (engine *nativeEngine) nativeResolve(ctx context.Context, input nativeInput
 		return nativePlan{}, err
 	}
 	choice := nativePlaybackChoices(media, input.Quality)
+	if input.AdBlock != nil {
+		choice.adBlock = *input.AdBlock
+	}
 	choice.source = SourceFromDramaID(task.DramaID)
 	if p, ok := engine.downloader.provider(choice.source); ok {
 		if danmaku, ok := providerAs[DanmakuProvider](p); ok {

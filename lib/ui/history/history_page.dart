@@ -27,9 +27,17 @@ typedef _View = ({
 });
 
 class HistoryPage extends StatefulWidget {
-  const HistoryPage({super.key, required this.store, this.root = false});
+  const HistoryPage({
+    super.key,
+    required this.store,
+    this.root = false,
+    this.embedded = false,
+  });
   final LocalStore store;
   final bool root;
+
+  /// 嵌在追剧页左侧栏里时为 true：不带自己的 Scaffold 和大标题。
+  final bool embedded;
 
   @override
   State<HistoryPage> createState() => _HistoryPageState();
@@ -312,6 +320,49 @@ class _HistoryPageState extends State<HistoryPage> {
   Widget _phone(BuildContext context, _View view) {
     final selection = view.selection;
     final root = widget.root;
+    final embedded = widget.embedded;
+    final content = SafeArea(
+      top: root && !embedded,
+      bottom: false,
+      child: _content(
+        context,
+        view,
+        inset: 16,
+        header: [
+          if (root && !embedded)
+            FadeSwitcher(
+              child: selection == null
+                  ? PageHeader(
+                      key: const ValueKey(false),
+                      title: '观看记录',
+                      actions: _browseActions(view, icons: false),
+                    )
+                  : PageHeader(
+                      key: const ValueKey(true),
+                      title: '已选择 ${selection.length} 部',
+                      actions: [
+                        _selectAll(view),
+                        _textButton('完成', _finishEditing),
+                      ],
+                    ),
+            ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, root && !embedded ? 0 : 4, 16, 8),
+            child: _search(),
+          ),
+          ?_sources(view, inset: 16, scroll: true),
+          if (embedded && selection != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: _editActions(view),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (embedded) return content;
     return Scaffold(
       appBar: root
           ? null
@@ -346,39 +397,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 const SizedBox(width: 8),
               ],
             ),
-      body: SafeArea(
-        top: root,
-        bottom: false,
-        child: _content(
-          context,
-          view,
-          inset: 16,
-          header: [
-            if (root)
-              FadeSwitcher(
-                child: selection == null
-                    ? PageHeader(
-                        key: const ValueKey(false),
-                        title: '观看记录',
-                        actions: _browseActions(view, icons: false),
-                      )
-                    : PageHeader(
-                        key: const ValueKey(true),
-                        title: '已选择 ${selection.length} 部',
-                        actions: [
-                          _selectAll(view),
-                          _textButton('完成', _finishEditing),
-                        ],
-                      ),
-              ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(16, root ? 0 : 4, 16, 8),
-              child: _search(),
-            ),
-            ?_sources(view, inset: 16, scroll: true),
-          ],
-        ),
-      ),
+      body: content,
       bottomNavigationBar: selection == null
           ? null
           : SafeArea(
@@ -390,8 +409,9 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget _wide(BuildContext context, _View view) => Scaffold(
-    body: SafeArea(
+  Widget _wide(BuildContext context, _View view) {
+    final embedded = widget.embedded;
+    final content = SafeArea(
       bottom: false,
       child: _content(
         context,
@@ -406,19 +426,23 @@ class _HistoryPageState extends State<HistoryPage> {
                 child: Row(
                   spacing: 8,
                   children: [
-                    ToggleIconSwitcher(
-                      child: view.selection == null
-                          ? widget.root
-                                ? const SizedBox(key: ValueKey(false), width: 8)
-                                : const BackButton(key: ValueKey(false))
-                          : IconButton(
-                              key: const ValueKey(true),
-                              tooltip: '退出编辑',
-                              onPressed: _finishEditing,
-                              icon: const Icon(Icons.close_rounded),
-                            ),
-                    ),
-                    Expanded(child: _title(view, 28)),
+                    if (!embedded)
+                      ToggleIconSwitcher(
+                        child: view.selection == null
+                            ? widget.root
+                                  ? const SizedBox(key: ValueKey(false), width: 8)
+                                  : const BackButton(key: ValueKey(false))
+                            : IconButton(
+                                key: const ValueKey(true),
+                                tooltip: '退出编辑',
+                                onPressed: _finishEditing,
+                                icon: const Icon(Icons.close_rounded),
+                              ),
+                      ),
+                    if (embedded)
+                      const Spacer()
+                    else
+                      Expanded(child: _title(view, 28)),
                     _trailing(
                       view,
                       SizedBox(
@@ -434,11 +458,13 @@ class _HistoryPageState extends State<HistoryPage> {
           ?_sources(view, inset: 24),
         ],
       ),
-    ),
-  );
+    );
+    return embedded ? content : Scaffold(body: content);
+  }
 
-  Widget _television(BuildContext context, _View view) => Scaffold(
-    body: SafeArea(
+  Widget _television(BuildContext context, _View view) {
+    final embedded = widget.embedded;
+    final content = SafeArea(
       child: _content(
         context,
         view,
@@ -457,7 +483,8 @@ class _HistoryPageState extends State<HistoryPage> {
               child: Row(
                 spacing: 12,
                 children: [
-                  Expanded(child: _title(view, 24)),
+                  if (embedded) const Spacer(),
+                  if (!embedded) Expanded(child: _title(view, 24)),
                   _trailing(
                     view,
                     SizedBox(
@@ -473,8 +500,9 @@ class _HistoryPageState extends State<HistoryPage> {
           ?_sources(view, inset: televisionInset),
         ],
       ),
-    ),
-  );
+    );
+    return embedded ? content : Scaffold(body: content);
+  }
 
   (int, double, double) _grid(BuildContext context, double width) {
     switch (AppScope.formFactorOf(context)) {
