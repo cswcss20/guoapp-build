@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../drama_feed.dart';
 import '../../explore_feed.dart';
+import '../../live/live_page.dart';
 import '../../local_store.dart';
 import '../../zh_script.dart';
 import '../../models.dart';
@@ -236,6 +237,12 @@ class ExplorePageState extends State<ExplorePage> {
                           ),
                     ],
                     actions: [
+                      BarButton(
+                        icon: Icons.live_tv_rounded,
+                        tooltip: zh('直播'),
+                        onPressed: () =>
+                            unawaited(openLive(context, store: widget.store)),
+                      ),
                       if (desktop)
                         BarButton(
                           icon: Icons.refresh_rounded,

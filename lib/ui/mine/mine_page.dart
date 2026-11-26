@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../download_converter.dart';
 import '../../merge_queue.dart';
 import '../../download_overview.dart';
+import '../../live/live_page.dart';
 import '../../local_store.dart';
 import '../../zh_script.dart';
 import '../../models.dart';
@@ -77,6 +80,11 @@ class MinePage extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     spacing: 12,
     children: [
+      _Entry(
+        icon: Icons.live_tv_rounded,
+        title: '直播',
+        onTap: () => unawaited(openLive(context, store: store)),
+      ),
       if (store.canDownload)
         _Entry(
           icon: Icons.download_rounded,
