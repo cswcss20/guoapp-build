@@ -11,7 +11,7 @@ import '../../playback_session.dart';
 
 Player _player() => Player(
   configuration: const PlayerConfiguration(
-    bufferSize: 32 * 1024 * 1024,
+    bufferSize: 256 * 1024 * 1024,
     logLevel: MPVLogLevel.error,
   ),
 );

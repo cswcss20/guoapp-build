@@ -1094,7 +1094,7 @@ class PlaybackSession extends ChangeNotifier {
     if (platform is! NativePlayer) return;
     await platform.setProperty(
       'demuxer-max-bytes',
-      '${(limited ? 4 : 32) * 1024 * 1024}',
+      '${(limited ? 4 : 256) * 1024 * 1024}',
     );
   }
 
