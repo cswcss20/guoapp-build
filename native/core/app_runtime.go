@@ -62,6 +62,8 @@ type LibraryDrama struct {
 	Tags           []string `json:"tags,omitempty"`
 	ReleaseStatus  string   `json:"releaseStatus,omitempty"`
 	Badge          string   `json:"badge,omitempty"`
+	// Peers 在跨源聚合搜索里带上其它站源的同一部剧，供界面一键切换播放源。
+	Peers []LibraryDrama `json:"peers,omitempty"`
 }
 
 type nativeInput struct {
@@ -102,6 +104,9 @@ type nativeInput struct {
 	// AdBlock 控制 m3u8 广告分片过滤。缺省（nil）按开启处理，
 	// 与播放设置里的默认值一致。
 	AdBlock *bool `json:"adBlock"`
+	// Sources 是跨源聚合搜索要查的站源列表；Search 是搜索会话号。
+	Sources []string `json:"sources"`
+	Search  string   `json:"search"`
 }
 
 type nativeCatalogResult struct {
@@ -161,6 +166,9 @@ type nativeEngine struct {
 	playbackCancel      context.CancelFunc
 	sourceCatalogMu     sync.Mutex
 	sourceCatalogs      map[string]chan struct{}
+	// 跨源聚合搜索的进行中会话：searchStart 建会话，searchPoll 读快照。
+	searchMu sync.Mutex
+	searches map[string]*nativeSearchSession
 }
 
 var nativeState struct {
@@ -359,7 +367,7 @@ func nativeDispatch(input nativeInput) (any, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), duration)
 	defer cancel()
-	if input.Action == "danmaku" || input.Action == "preload" || input.Session != "" && (input.Action == "catalog" || input.Action == "categories" || input.Action == "filters" || input.Action == "suggestions" || input.Action == "recommendations" || input.Action == "metadata" || input.Action == "searchAll") {
+	if input.Action == "danmaku" || input.Action == "preload" || input.Session != "" && (input.Action == "catalog" || input.Action == "categories" || input.Action == "filters" || input.Action == "suggestions" || input.Action == "recommendations" || input.Action == "metadata") {
 		work, finish, err := engine.beginRead(ctx, input)
 		if err != nil {
 			return nil, err
@@ -451,8 +459,16 @@ func nativeDispatch(input nativeInput) (any, error) {
 		return plan, err
 	case "catalog":
 		return engine.nativeCatalog(ctx, input)
-	case "searchAll":
-		return engine.nativeSearchAll(ctx, input)
+	// 跨源聚合搜索：searchStart 建会话并并发查各源，searchPoll 读增量快照，
+	// searchCancel 取消。三个动作都不走 beginRead 的会话取消通道——start 的
+	// 后台工作用自己的 ctx，poll 只是平价快照，绝不能把 start 的工作取消掉。
+	case "searchStart":
+		return engine.nativeSearchStart(input)
+	case "searchPoll":
+		return engine.nativeSearchPoll(input)
+	case "searchCancel":
+		engine.nativeSearchCancel(input.Search)
+		return true, nil
 	case "cached":
 		if !ValidNativeCategory(canonicalProviderSource(input.Source), input.Category) {
 			return nil, errors.New("内容分类无效")

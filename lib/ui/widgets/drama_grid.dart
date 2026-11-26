@@ -68,6 +68,7 @@ class DramaSliverGrid extends StatelessWidget {
     required this.onOpen,
     this.onMore,
     this.rankOf,
+    this.subtitleOf,
     this.autofocus = false,
     this.entered,
     this.showScore = false,
@@ -79,6 +80,11 @@ class DramaSliverGrid extends StatelessWidget {
   final ValueChanged<Drama> onOpen;
   final ValueChanged<Drama>? onMore;
   final int? Function(Drama drama)? rankOf;
+
+  /// Overrides the tile subtitle (defaults to the drama's category).
+  /// Cross-source search uses it to show the source name and how many
+  /// other sources carry the same title.
+  final String? Function(Drama drama)? subtitleOf;
   final bool autofocus;
   final Set<Object>? entered;
   final bool showScore;
@@ -100,6 +106,7 @@ class DramaSliverGrid extends StatelessWidget {
           child: DramaTile(
             drama: drama,
             rank: rankOf?.call(drama),
+            subtitle: subtitleOf?.call(drama),
             autofocus: autofocus && index == 0,
             showScore: showScore,
             exploreBlur: exploreBlur,

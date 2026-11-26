@@ -174,9 +174,13 @@ abstract class AppRepository {
     String source, {
     String category = '',
   }) async => const [];
-  Future<SearchAllPage> searchAll(String query, {int page = 1}) async =>
+  /// 跨源聚合搜索：启动一轮搜索并立刻返回首个快照，
+  /// 之后用 [searchPoll] 增量取结果，无需等所有站源搜完。
+  Future<SearchProgress> searchStart(List<String> sources, String query) =>
       throw AppFailure('当前环境不支持跨站源搜索');
-  Future<void> cancelSearchAll() async {}
+  Future<SearchProgress> searchPoll(String id) =>
+      throw AppFailure('当前环境不支持跨站源搜索');
+  Future<void> searchCancel(String id) async {}
   bool get supportsSourceManagement => false;
   Future<List<SourceModule>> modules() async => const [];
   Future<ModuleStore> moduleIndex() async => throw AppFailure('当前环境不支持模块商店');
@@ -1095,18 +1099,31 @@ class NativeRepository extends AppRepository {
         }),
       );
   @override
-  Future<SearchAllPage> searchAll(String query, {int page = 1}) async =>
-      SearchAllPage.fromJson(
-        // The scope only identifies the read stream; cap the segment so a
-        // very long query cannot push the session past validNativeRead's
-        // length limit.
-        await _read(
-          'search-all-${_scopeSegment(String.fromCharCodes(query.runes.take(64)))}',
-          {'action': 'searchAll', 'query': query, 'page': page},
-        ),
+  Future<SearchProgress> searchStart(List<String> sources, String query) async =>
+      SearchProgress.fromJson(
+        // Plain _call, not _read: the core session runs on its own
+        // background context and polls are cheap snapshots, so there is
+        // no read scope to cancel — cancellation is the explicit
+        // searchCancel below plus the page's generation guard.
+        await _call({
+          'action': 'searchStart',
+          'sources': sources,
+          'query': query,
+          'page': 1,
+        }),
       );
   @override
-  Future<void> cancelSearchAll() => _cancelReads('search-all-');
+  Future<SearchProgress> searchPoll(String id) async => SearchProgress.fromJson(
+    await _call({'action': 'searchPoll', 'search': id}),
+  );
+  @override
+  Future<void> searchCancel(String id) async {
+    try {
+      await _call({'action': 'searchCancel', 'search': id});
+    } catch (_) {
+      // 会话已结束或核心正在重启：取消失败不算错误。
+    }
+  }
   @override
   bool coverCached(Drama drama) =>
       _coverPaths.containsKey('${drama.id}\u0000${drama.cover}');

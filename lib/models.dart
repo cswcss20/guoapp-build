@@ -182,6 +182,7 @@ class Drama {
     this.tags = const [],
     this.releaseStatus = '',
     this.badge = '',
+    this.peers = const [],
   }) : vipStatus = vip;
   final String id;
   final String source;
@@ -200,6 +201,10 @@ class Drama {
   final List<String> tags;
   final String releaseStatus;
   final String badge;
+
+  /// 跨源聚合搜索里其它站源的同一部剧，供界面一键切换播放源。
+  /// 只存在于搜索会话的快照里，不写进 toJson（不进本机存储）。
+  final List<Drama> peers;
   String get releaseLabel => zh(switch (releaseStatus) {
     'finished' || 'completed' => '已完结',
     'ongoing' => '连载中',
@@ -229,6 +234,10 @@ class Drama {
     tags: (json['tags'] as List? ?? const []).whereType<String>().toList(),
     releaseStatus: json['releaseStatus'] as String? ?? '',
     badge: json['badge'] as String? ?? '',
+    peers: [
+      for (final row in json['peers'] as List? ?? const [])
+        Drama.fromJson(Map<String, dynamic>.from(row as Map)),
+    ],
   );
   Map<String, dynamic> toJson() => {
     'metadataSchema': 1,
@@ -423,50 +432,61 @@ class CatalogPage {
   );
 }
 
-/// One source's slice of a cross-source search (`searchAll` action).
-class SearchAllGroup {
-  const SearchAllGroup(
-    this.source,
-    this.name,
-    this.items, {
-    this.hasMore = false,
+/// 一轮跨源聚合搜索的增量快照。
+/// 核心侧每个站源返回后都会更新快照，前端按 [id] 轮询即可看到结果陆续到位，
+/// 不必等所有站源搜完；[pending] 是仍在搜的站源，[failures] 记录失败原因。
+/// [items] 已按标题/年份/集数归一去重，每条的 peers 带上其它站源的同一部剧。
+class SearchProgress {
+  const SearchProgress({
+    this.id = '',
+    this.query = '',
+    this.items = const [],
+    this.sources = const [],
+    this.pending = const [],
+    this.failures = const {},
+    this.warning = '',
+    this.total = 0,
+    this.done = 0,
+    this.finished = false,
   });
-  final String source;
-  final String name;
+  final String id;
+  final String query;
   final List<Drama> items;
-  final bool hasMore;
-  factory SearchAllGroup.fromJson(Map<String, dynamic> json) => SearchAllGroup(
-    json['source'] as String? ?? '',
-    json['name'] as String? ?? '',
-    [
+
+  /// 已成功返回的站源。
+  final List<String> sources;
+
+  /// 仍在搜索中的站源。
+  final List<String> pending;
+  final Map<String, String> failures;
+  final String warning;
+  final int total;
+  final int done;
+  final bool finished;
+
+  bool get running => !finished;
+
+  factory SearchProgress.fromJson(Map<String, dynamic> json) => SearchProgress(
+    id: json['search'] as String? ?? '',
+    query: json['query'] as String? ?? '',
+    items: [
       for (final row in json['items'] as List? ?? const [])
         Drama.fromJson(Map<String, dynamic>.from(row as Map)),
     ],
-    hasMore: json['hasMore'] == true,
-  );
-}
-
-/// A page of cross-source search results: per-source groups plus the ids
-/// of searchable sources that failed or timed out for this page.
-class SearchAllPage {
-  const SearchAllPage(
-    this.groups, {
-    this.failed = const [],
-    this.page = 1,
-    this.hasMore = false,
-  });
-  final List<SearchAllGroup> groups;
-  final List<String> failed;
-  final int page;
-  final bool hasMore;
-  factory SearchAllPage.fromJson(Map<String, dynamic> json) => SearchAllPage(
-    [
-      for (final row in json['groups'] as List? ?? const [])
-        SearchAllGroup.fromJson(Map<String, dynamic>.from(row as Map)),
-    ],
-    failed: (json['failed'] as List? ?? const []).whereType<String>().toList(),
-    page: intValue(json['page']) > 0 ? intValue(json['page']) : 1,
-    hasMore: json['hasMore'] == true,
+    sources: (json['sources'] as List? ?? const [])
+        .whereType<String>()
+        .toList(),
+    pending: (json['pending'] as List? ?? const [])
+        .whereType<String>()
+        .toList(),
+    failures: {
+      for (final entry in (json['failures'] as Map? ?? const {}).entries)
+        entry.key as String: '${entry.value}',
+    },
+    warning: json['warning'] as String? ?? '',
+    total: intValue(json['total']),
+    done: intValue(json['done']),
+    finished: json['finished'] == true,
   );
 }
 

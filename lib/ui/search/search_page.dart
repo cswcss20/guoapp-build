@@ -46,7 +46,14 @@ class _SearchPageState extends State<SearchPage> {
   late SourceCatalog _catalog;
   bool _allSources = false;
   DramaFeed? _results;
-  _AllSearchFeed? _allResults;
+  // 全部源搜索的流式状态：核心那边每返回一个站源就更新一次快照，
+  // 页面按会话号轮询，边到边加，不等最慢的站源。
+  SearchProgress? _cross;
+  String _crossError = '';
+  String _searchId = '';
+  Timer? _poll;
+  int _generation = 0;
+  int _pollFailures = 0;
   String _submitted = '';
   List<String> _suggestions = const [];
   Timer? _debounce;
@@ -74,10 +81,12 @@ class _SearchPageState extends State<SearchPage> {
   void dispose() {
     _debounce?.cancel();
     _suggestion++;
+    _generation++;
+    _poll?.cancel();
+    final search = _searchId;
+    if (search.isNotEmpty) unawaited(_repository.searchCancel(search));
     unawaited(_repository.cancelSuggestions());
-    unawaited(_repository.cancelSearchAll());
     _results?.dispose();
-    _allResults?.dispose();
     _controller.dispose();
     _focus.dispose();
     super.dispose();
@@ -139,29 +148,108 @@ class _SearchPageState extends State<SearchPage> {
     _debounce?.cancel();
     _suggestion++;
     unawaited(widget.store.rememberSearch(query).catchError((Object _) {}));
-    _results?.dispose();
-    _results = null;
-    _allResults?.dispose();
-    _allResults = null;
     _filterPicks = {};
     if (_allSources) {
-      final feed = _allResults = _AllSearchFeed(
-        load: (page) => _repository.searchAll(query, page: page),
-        allowed: {for (final site in widget.store.sources) site.id},
-      )..addListener(() => setState(() {}));
-      unawaited(feed.reload());
-    } else {
-      final results = _results = DramaFeed(
-        load: (page, _) =>
-            _catalog.search(query, page: page, filters: _filterPicks),
-      )..addListener(() => setState(() {}));
-      unawaited(results.reload());
-      unawaited(_loadSearchFilters());
+      _startCross(query);
+      return;
     }
+    _resetCross();
+    _results?.dispose();
+    final results = _results = DramaFeed(
+      load: (page, _) =>
+          _catalog.search(query, page: page, filters: _filterPicks),
+    )..addListener(() => setState(() {}));
+    unawaited(results.reload());
+    unawaited(_loadSearchFilters());
     setState(() {
       _submitted = query;
       _suggestions = const [];
     });
+  }
+
+  // ---- 全部源：启动 + 轮询增量结果 ----
+
+  void _startCross(String query) {
+    _results?.dispose();
+    _results = null;
+    final generation = ++_generation;
+    _stopPolling(cancelRemote: true);
+    // 参与搜索的站源就是本机已开启的站源（与旧版 Dart 侧过滤同口径，
+    // 现在直接把名单交给核心，不再搜完才丢）。
+    final sources = [for (final site in widget.store.sources) site.id];
+    setState(() {
+      _submitted = query;
+      _suggestions = const [];
+      _crossError = '';
+      _pollFailures = 0;
+      _cross = SearchProgress(
+        query: query,
+        pending: sources,
+        total: sources.length,
+      );
+    });
+    if (sources.isEmpty) {
+      setState(() => _crossError = zh('没有已开启的站源，请先在「站源」里开启'));
+      return;
+    }
+    unawaited(() async {
+      try {
+        final result = await _repository.searchStart(sources, query);
+        if (!mounted || generation != _generation) {
+          unawaited(_repository.searchCancel(result.id));
+          return;
+        }
+        _searchId = result.id;
+        setState(() => _cross = result);
+        _schedulePoll(generation);
+      } catch (error) {
+        if (!mounted || generation != _generation) return;
+        setState(() => _crossError = error.toString());
+      }
+    }());
+  }
+
+  /// 轮询间隔压到 250ms 左右：站源一回来就能刷到屏幕上，
+  /// 又不至于把原生核心的请求通道打满。
+  void _schedulePoll(int generation) {
+    _poll?.cancel();
+    _poll = Timer(const Duration(milliseconds: 250), () async {
+      if (!mounted || generation != _generation) return;
+      final search = _searchId;
+      if (search.isEmpty) return;
+      try {
+        final result = await _repository.searchPoll(search);
+        if (!mounted || generation != _generation) return;
+        _pollFailures = 0;
+        setState(() => _cross = result);
+        if (!result.finished) _schedulePoll(generation);
+      } catch (error) {
+        if (!mounted || generation != _generation) return;
+        if (++_pollFailures >= 4) {
+          setState(() => _crossError = error.toString());
+          return;
+        }
+        _schedulePoll(generation);
+      }
+    });
+  }
+
+  void _stopPolling({bool cancelRemote = false}) {
+    _poll?.cancel();
+    _poll = null;
+    final search = _searchId;
+    _searchId = '';
+    if (cancelRemote && search.isNotEmpty) {
+      unawaited(_repository.searchCancel(search));
+    }
+  }
+
+  void _resetCross() {
+    _generation++;
+    _stopPolling(cancelRemote: true);
+    _pollFailures = 0;
+    _crossError = '';
+    if (_cross != null) setState(() => _cross = null);
   }
 
   /// Switches between cross-source search (empty [id]) and one source.
@@ -260,6 +348,30 @@ class _SearchPageState extends State<SearchPage> {
     (_) => DetailPage(store: widget.store, drama: drama),
   );
 
+  /// Opens a merged cross-source result. When other sources carry the
+  /// same title (peers), let the user pick which copy to open first.
+  Future<void> _openCross(Drama drama) async {
+    if (drama.peers.isEmpty) {
+      _open(drama);
+      return;
+    }
+    final picked = await showChoicePanel<Drama>(
+      context: context,
+      title: drama.title,
+      options: [
+        for (final copy in [drama, ...drama.peers])
+          ChoiceOption(
+            copy,
+            '${SourceSite.byId(copy.source).name}'
+            '${copy.episodes > 0 ? ' · ${copy.episodes}集' : ''}',
+          ),
+      ],
+      selected: drama,
+      grid: ChoiceGrid.sources,
+    );
+    if (picked != null && mounted) _open(picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final field = SearchField(
@@ -355,7 +467,7 @@ class _SearchPageState extends State<SearchPage> {
         : 24.0;
     final Widget content;
     if (_allSources) {
-      content = _allContent(context, inset, television);
+      content = _crossBody(context, inset, television);
     } else if (_results == null) {
       content = KeyedSubtree(
         key: const ValueKey('recent'),
@@ -466,172 +578,191 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  Widget _allContent(BuildContext context, double inset, bool television) {
-    final feed = _allResults;
-    if (feed == null) {
+  /// 全部源的流式结果：头部显示进度，下面就是已经搜到的条目，边到边加。
+  /// 条目已在核心侧按标题/年份/集数归一去重，同一部剧只出一条，
+  /// 副标题标明主站源和还有几个源有同一部剧，点开时可先揀源。
+  Widget _crossBody(BuildContext context, double inset, bool television) {
+    if (_cross == null && _submitted.isEmpty) {
       return KeyedSubtree(
         key: const ValueKey('recent'),
         child: _recent(context),
       );
     }
-    if (feed.groups.isEmpty) {
-      if (feed.loading) {
-        return const StatusView.loading(
-          key: ValueKey('all-loading'),
-          title: '正在搜索',
-        );
-      }
-      if (feed.error.isNotEmpty) {
-        return StatusView(
-          key: const ValueKey('all-error'),
-          title: '搜索失败',
-          message: feed.error,
-          icon: Icons.cloud_off_rounded,
-          action: '重试',
-          onAction: () => feed.reload(),
-        );
-      }
+    if (_crossError.isNotEmpty && (_cross?.items.isEmpty ?? true)) {
       return StatusView(
-        key: const ValueKey('all-empty'),
-        title: '没有找到「$_submitted」',
-        message: '换个关键词试试',
-        icon: Icons.search_off_rounded,
+        key: const ValueKey('all-error'),
+        title: '搜索失败',
+        message: _crossError,
+        icon: Icons.cloud_off_rounded,
+        action: '重试',
+        onAction: () => _submit(_submitted),
       );
     }
-    return NotificationListener<ScrollMetricsNotification>(
-      onNotification: (notification) {
-        if (notification.depth == 0 &&
-            notification.metrics.axis == Axis.vertical &&
-            notification.metrics.extentAfter < 600 &&
-            feed.canLoadMore) {
-          WidgetsBinding.instance.addPostFrameCallback(
-            (_) => feed.loadMore(),
-          );
-        }
-        return false;
-      },
-      child: LayoutBuilder(
-        key: ValueKey(('all-results', _submitted)),
-        builder: (context, constraints) {
-          final width = constraints.maxWidth - inset * 2;
-          return CustomScrollView(
-            slivers: [
-              for (final (index, group) in feed.groups.indexed) ...[
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(inset, 16, inset, 8),
-                  sliver: SliverToBoxAdapter(
-                    child: _groupHeader(context, group),
-                  ),
-                ),
-                SliverPadding(
-                  padding: EdgeInsets.symmetric(horizontal: inset),
-                  sliver: DramaSliverGrid(
-                    width: width,
-                    items: group.items.take(8).toList(),
-                    autofocus: television && index == 0,
-                    onOpen: _open,
-                    onMore: (drama) =>
-                        quickFollow(context, widget.store, drama),
-                  ),
-                ),
-              ],
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  inset,
-                  16,
-                  inset,
-                  television ? 27 : 16,
-                ),
-                sliver: SliverToBoxAdapter(child: _allFooter(context, feed)),
+    final progress = _cross;
+    if (progress == null || progress.items.isEmpty) {
+      if (progress != null && progress.finished) {
+        return StatusView(
+          key: const ValueKey('all-empty'),
+          title: '没有找到「$_submitted」',
+          message: progress.warning.isNotEmpty
+              ? progress.warning
+              : '换个关键词试试',
+          icon: Icons.search_off_rounded,
+        );
+      }
+      // 首个结果还没回来：给转圈 + 实时进度，让用户知道在搜哪些站源。
+      return Center(
+        key: const ValueKey('all-loading'),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox.square(
+                dimension: 32,
+                child: CircularProgressIndicator(strokeWidth: 3),
               ),
+              const SizedBox(height: 20),
+              Text(
+                zh('正在搜索全部源'),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              if (progress != null && progress.total > 0) ...[
+                const SizedBox(height: 16),
+                _crossHeader(context, progress, _crossError),
+              ],
             ],
-          );
-        },
+          ),
+        ),
+      );
+    }
+    return LayoutBuilder(
+      key: ValueKey(('all-results', _submitted)),
+      builder: (context, constraints) => CustomScrollView(
+        // 结果一直在变长，保持滚动位置别被重建顶回去。
+        key: const PageStorageKey<String>('search-cross'),
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(inset, 12, inset, 0),
+            sliver: SliverToBoxAdapter(
+              child: _crossHeader(context, progress, _crossError),
+            ),
+          ),
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(inset, 12, inset, 0),
+            sliver: DramaSliverGrid(
+              width: constraints.maxWidth - inset * 2,
+              items: progress.items,
+              autofocus: television,
+              onOpen: _openCross,
+              onMore: (drama) => quickFollow(context, widget.store, drama),
+              subtitleOf: (drama) {
+                final name = SourceSite.byId(drama.source).name;
+                return drama.peers.isEmpty
+                    ? name
+                    : '$name · ${zh('另 ${drama.peers.length} 源')}';
+              },
+            ),
+          ),
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(
+              inset,
+              12,
+              inset,
+              television ? 27 : 16,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: Text(
+                zh(progress.running ? '继续搜索中…' : '已经搜完全部站源'),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _groupHeader(BuildContext context, SearchAllGroup group) {
-    final theme = Theme.of(context);
-    final more = group.hasMore || group.items.length > 8;
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            '${group.name} · ${group.items.length}',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        if (more)
-          FocusRing(
-            radius: 999,
-            child: TextButton(
-              onPressed: () => _selectSource(group.source),
-              child: Text(zh('去这个来源看全部')),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _allFooter(BuildContext context, _AllSearchFeed feed) {
+  Widget _crossHeader(
+    BuildContext context,
+    SearchProgress progress,
+    String error,
+  ) {
     final theme = Theme.of(context);
     final caption = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
-    final failedNames = [
-      for (final id in feed.failed) SourceSite.byId(id).name,
-    ];
+    final status = progress.running
+        ? '已搜索 ${progress.done}/${progress.total} 个站源 · 已找到 ${progress.items.length} 条'
+        : '已搜索 ${progress.total} 个站源 · 共 ${progress.items.length} 条';
+    final pending = [
+      for (final id in progress.pending.take(4)) SourceSite.byId(id).name,
+    ].join('、');
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (failedNames.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              zh('以下来源没有回应：${failedNames.join('、')}'),
-              style: caption,
-              textAlign: TextAlign.center,
+        Row(
+          children: [
+            SizedBox.square(
+              dimension: 14,
+              child: progress.running
+                  ? const CircularProgressIndicator(strokeWidth: 2)
+                  : Icon(
+                      Icons.travel_explore_rounded,
+                      size: 16,
+                      color: theme.colorScheme.primary,
+                    ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                zh(status),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (progress.running) ...[
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progress.total == 0
+                  ? null
+                  : (progress.done / progress.total).clamp(0.0, 1.0),
+              minHeight: 3,
             ),
           ),
-        SizedBox(
-          height: 48,
-          child: Center(
-            child: feed.loadingMore
-                ? const SizedBox.square(
-                    dimension: 24,
-                    child: CircularProgressIndicator(strokeWidth: 3),
-                  )
-                : feed.error.isNotEmpty
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          feed.error,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: caption,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      FocusRing(
-                        radius: 999,
-                        child: TextButton(
-                          onPressed: feed.hasMore ? feed.loadMore : feed.reload,
-                          child: Text(zh('重试')),
-                        ),
-                      ),
-                    ],
-                  )
-                : feed.hasMore
-                ? null
-                : Text(zh('已经到底了'), style: caption),
+          if (progress.pending.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              zh('正在搜索 $pending${progress.pending.length > 4 ? ' 等' : ''}'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: caption,
+            ),
+          ],
+        ],
+        if (progress.warning.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            zh(progress.warning),
+            style: caption?.copyWith(color: theme.colorScheme.error),
           ),
-        ),
+        ],
+        if (error.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            zh('刷新结果时出错：$error'),
+            style: caption?.copyWith(color: theme.colorScheme.error),
+          ),
+        ],
       ],
     );
   }
@@ -755,121 +886,5 @@ class _SearchPageState extends State<SearchPage> {
         ],
       ],
     );
-  }
-}
-
-/// Cross-source search state: per-source groups merged page by page.
-/// [allowed] is the set of source ids the store currently permits and
-/// enables — the core searches every registered provider, so groups (and
-/// failures) from sources the user turned off or the profile does not
-/// permit are dropped here and never displayed.
-class _AllSearchFeed extends ChangeNotifier {
-  _AllSearchFeed({required this.load, required this.allowed});
-  final Future<SearchAllPage> Function(int page) load;
-  final Set<String> allowed;
-
-  List<SearchAllGroup> _groups = const [];
-  List<String> _failed = const [];
-  bool _loading = false;
-  bool _loadingMore = false;
-  bool _hasMore = false;
-  String _error = '';
-  int _next = 1;
-  int _generation = 0;
-  bool _disposed = false;
-
-  List<SearchAllGroup> get groups => _groups;
-  List<String> get failed => _failed;
-  bool get loading => _loading;
-  bool get loadingMore => _loadingMore;
-  bool get hasMore => _hasMore;
-  String get error => _error;
-  bool get canLoadMore => _hasMore && !_loading && !_loadingMore;
-
-  Future<void> reload() async {
-    final generation = ++_generation;
-    _loading = true;
-    _loadingMore = false;
-    _error = '';
-    _notify();
-    try {
-      final page = await load(1);
-      if (generation != _generation) return;
-      _accept(page, more: false);
-    } catch (failure) {
-      if (generation != _generation) return;
-      _error = '$failure';
-    }
-    _loading = false;
-    _notify();
-  }
-
-  Future<void> loadMore() async {
-    if (!canLoadMore) return;
-    final generation = _generation;
-    _loadingMore = true;
-    _error = '';
-    _notify();
-    try {
-      final page = await load(_next);
-      if (generation != _generation) return;
-      _accept(page, more: true);
-    } catch (failure) {
-      if (generation != _generation) return;
-      _error = '$failure';
-    }
-    _loadingMore = false;
-    _notify();
-  }
-
-  void _accept(SearchAllPage page, {required bool more}) {
-    final groups = [
-      for (final group in page.groups)
-        if (allowed.contains(group.source)) group,
-    ];
-    _failed = [
-      for (final id in page.failed)
-        if (allowed.contains(id)) id,
-    ];
-    if (!more) {
-      _groups = groups;
-    } else {
-      final byId = {for (final group in _groups) group.source: group};
-      for (final group in groups) {
-        final old = byId[group.source];
-        if (old == null) {
-          _groups = [..._groups, group];
-          byId[group.source] = group;
-        } else {
-          final known = {for (final drama in old.items) drama.id};
-          byId[group.source] = SearchAllGroup(
-            old.source,
-            old.name,
-            [
-              ...old.items,
-              for (final drama in group.items)
-                if (known.add(drama.id)) drama,
-            ],
-            hasMore: group.hasMore,
-          );
-        }
-      }
-      _groups = [for (final group in _groups) byId[group.source]!];
-    }
-    _next = page.page + 1;
-    // Recompute from the groups actually shown: the core's hasMore may
-    // rest on a source this profile does not display.
-    _hasMore = _groups.any((group) => group.hasMore);
-  }
-
-  void _notify() {
-    if (!_disposed) notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _disposed = true;
-    _generation++;
-    super.dispose();
   }
 }
