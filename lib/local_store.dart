@@ -523,6 +523,14 @@ class LocalStore extends ChangeNotifier {
     }
     return coverCardAspect;
   }
+
+  /// 搜尋頁專用比例，未設定時跟全域預設，唔會改動全域值。
+  String get coverCardAspectSearch {
+    final value = _settings['coverCardAspectSearch'];
+    return coverCardAspectModes.containsKey(value)
+        ? value as String
+        : coverCardAspect;
+  }
   bool get checkUpdates => _flag('checkUpdates', true);
   bool get autoExport => _flag('exportAfterDownload', false);
   bool get deleteAfterAutoExport => _flag('deleteAfterAutoExport', false);
@@ -792,6 +800,10 @@ class LocalStore extends ChangeNotifier {
             },
           }),
         )
+      : Future.value();
+  Future<void> setCoverCardAspectSearch(String value) =>
+      coverCardAspectModes.containsKey(value)
+      ? _setting('coverCardAspectSearch', value)
       : Future.value();
   Future<void> setCheckUpdates(bool value) => _setting('checkUpdates', value);
   Future<void> setAutoExport(bool value) =>
@@ -1222,6 +1234,7 @@ class LocalStore extends ChangeNotifier {
       'blurAllCovers': blurAllCovers,
       'coverCardAspect': coverCardAspect,
       'coverCardAspects': _map(_settings['coverCardAspects']),
+      'coverCardAspectSearch': coverCardAspectSearch,
       'forceLogin': forceLogin,
       'checkUpdates': checkUpdates,
       'shareUsage': shareUsage,
@@ -1270,6 +1283,10 @@ class LocalStore extends ChangeNotifier {
     }
     if (data.containsKey('coverCardAspect') &&
         !coverCardAspectModes.containsKey(data['coverCardAspect'])) {
+      throw const FormatException('备份卡片封面设置无效');
+    }
+    if (data.containsKey('coverCardAspectSearch') &&
+        !coverCardAspectModes.containsKey(data['coverCardAspectSearch'])) {
       throw const FormatException('备份卡片封面设置无效');
     }
     if (data['coverCardAspects'] case final Object aspects) {
@@ -1405,6 +1422,8 @@ class LocalStore extends ChangeNotifier {
           'coverCardAspect': aspect,
         if (data['coverCardAspects'] case final Map aspects)
           'coverCardAspects': aspects,
+        if (data['coverCardAspectSearch'] case final String aspect)
+          'coverCardAspectSearch': aspect,
       },
       _usersFile: {
         'profiles': [for (final profile in profiles) profile.toJson()],

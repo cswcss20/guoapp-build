@@ -79,6 +79,7 @@ class TelevisionDetail extends StatefulWidget {
     required this.onSeason,
     required this.onDescription,
     this.onTag,
+    this.coverAspect = 'portrait',
   });
   final DramaDetails details;
   final LocalStore store;
@@ -88,6 +89,9 @@ class TelevisionDetail extends StatefulWidget {
   final ValueChanged<DramaSeason> onSeason;
   final VoidCallback onDescription;
   final ValueChanged<String>? onTag;
+
+  /// 入嚟嗰頁嘅卡片封面比例（'portrait' / 'landscape'）。
+  final String coverAspect;
 
   @override
   State<TelevisionDetail> createState() => TelevisionDetailState();
@@ -574,10 +578,18 @@ class TelevisionDetailState extends State<TelevisionDetail> {
               ),
             ],
           ),
-          child: SizedBox(
-            width: 150,
-            child: DramaCover(drama: drama, radius: 10, details: false),
-          ),
+          child: widget.coverAspect == 'landscape'
+              ? Align(
+                  child: SizedBox(
+                    width: 320,
+                    height: 180,
+                    child: DramaCover(drama: drama, radius: 10, details: false),
+                  ),
+                )
+              : SizedBox(
+                  width: 150,
+                  child: DramaCover(drama: drama, radius: 10, details: false),
+                ),
         ),
         Expanded(
           child: Column(

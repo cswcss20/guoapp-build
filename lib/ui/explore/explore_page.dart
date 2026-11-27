@@ -113,10 +113,23 @@ class ExplorePageState extends State<ExplorePage> {
     );
   }
 
-  void _open(Drama drama, {bool autoplay = false}) => openPage<void>(
-    context,
-    (_) => DetailPage(store: widget.store, drama: drama, autoplay: autoplay),
-  );
+  void _open(Drama drama, {bool autoplay = false}) {
+    final explore = _explore;
+    openPage<void>(
+      context,
+      (_) => DetailPage(
+        store: widget.store,
+        drama: drama,
+        autoplay: autoplay,
+        coverAspect: explore == null
+            ? null
+            : widget.store.coverCardAspectFor(
+                explore.source?.id ?? '',
+                explore.tab.id,
+              ),
+      ),
+    );
+  }
 
   Future<void> _pickCategory(BuildContext anchor) async {
     final explore = _explore!;

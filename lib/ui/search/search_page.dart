@@ -15,6 +15,7 @@ import '../shell/app_shell.dart';
 import '../theme/motion.dart';
 import '../widgets/category_tabs.dart';
 import '../widgets/choice_panel.dart';
+import '../widgets/cover_aspect_toggle.dart';
 import '../widgets/drama_grid.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/follow_button.dart';
@@ -72,14 +73,20 @@ class _SearchPageState extends State<SearchPage> {
     super.didChangeDependencies();
     if (_ready) return;
     _ready = true;
+    widget.store.addListener(_storeChanged);
     _repository = AppScope.of(context).repository;
     _source = widget.source;
     _catalog = SourceCatalog(_repository, _source);
     if (widget.query.trim().isNotEmpty) _submit(widget.query);
   }
 
+  void _storeChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    widget.store.removeListener(_storeChanged);
     _debounce?.cancel();
     _suggestion++;
     _generation++;
@@ -346,7 +353,18 @@ class _SearchPageState extends State<SearchPage> {
 
   void _open(Drama drama) => openPage<void>(
     context,
-    (_) => DetailPage(store: widget.store, drama: drama),
+    (_) => DetailPage(
+      store: widget.store,
+      drama: drama,
+      coverAspect: widget.store.coverCardAspectSearch,
+    ),
+  );
+
+  Widget _aspectToggle() => CoverAspectToggle(
+    value: widget.store.coverCardAspectSearch,
+    onChanged: (mode) => unawaited(
+      widget.store.setCoverCardAspectSearch(mode).catchError((Object _) {}),
+    ),
   );
 
   /// Opens a merged cross-source result. When other sources carry the
@@ -402,6 +420,7 @@ class _SearchPageState extends State<SearchPage> {
                 spacing: 8,
                 children: [
                   Expanded(child: field),
+                  _aspectToggle(),
                   if (_submitted.isNotEmpty && !_allSources)
                     _favoriteTagAction(),
                 ],
@@ -420,6 +439,10 @@ class _SearchPageState extends State<SearchPage> {
           child: field,
         ),
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Center(child: _aspectToggle()),
+          ),
           if (_submitted.isNotEmpty && !_allSources) ...[
             _favoriteTagAction(),
             const SizedBox(width: 4),
@@ -561,7 +584,7 @@ class _SearchPageState extends State<SearchPage> {
               sliver: DramaSliverGrid(
                 width: constraints.maxWidth - inset * 2,
                 items: results.items,
-                coverAspect: widget.store.coverCardAspect,
+                coverAspect: widget.store.coverCardAspectSearch,
                 autofocus: television,
                 onOpen: _open,
                 onMore: (drama) => quickFollow(context, widget.store, drama),
@@ -657,7 +680,7 @@ class _SearchPageState extends State<SearchPage> {
             sliver: DramaSliverGrid(
               width: constraints.maxWidth - inset * 2,
               items: progress.items,
-              coverAspect: widget.store.coverCardAspect,
+              coverAspect: widget.store.coverCardAspectSearch,
               autofocus: television,
               onOpen: _openCross,
               onMore: (drama) => quickFollow(context, widget.store, drama),

@@ -166,10 +166,15 @@ class DetailPage extends StatefulWidget {
     required this.store,
     required this.drama,
     this.autoplay = false,
+    this.coverAspect,
   });
   final LocalStore store;
   final Drama drama;
   final bool autoplay;
+
+  /// 入嚟嗰頁嘅卡片封面比例（'portrait' / 'landscape'），封面跟住變；
+  /// null 時用全域預設。
+  final String? coverAspect;
 
   @override
   State<DetailPage> createState() => _DetailPageState();
@@ -218,6 +223,17 @@ class _DetailPageState extends State<DetailPage> {
   bool get _canDownload =>
       AppScope.of(context).repository.supportsDownloads &&
       widget.store.canDownload;
+
+  String get _coverAspect {
+    final value = widget.coverAspect;
+    return coverCardAspectModes.containsKey(value)
+        ? value!
+        : widget.store.coverCardAspect;
+  }
+
+  Size _coverSize(_Metrics m) => _coverAspect == 'landscape'
+      ? Size(m.cover.height, m.cover.height * 9 / 16)
+      : m.cover;
 
   bool get _ready => !_details!.loading && _details!.episodes.isNotEmpty;
 
@@ -839,6 +855,7 @@ class _DetailPageState extends State<DetailPage> {
         key: _televisionDetail,
         details: details,
         store: widget.store,
+        coverAspect: _coverAspect,
         status: _episodeStatus(details, autofocus: true),
         onResume: _ready
             ? () => _play(details.resumeIndex, resume: true)
@@ -917,7 +934,7 @@ class _DetailPageState extends State<DetailPage> {
       ],
     ),
     child: SizedBox.fromSize(
-      size: m.cover,
+      size: _coverSize(m),
       child: DramaCover(drama: drama, radius: m.coverRadius),
     ),
   );
