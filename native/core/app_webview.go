@@ -14,13 +14,15 @@ import (
 )
 
 var (
-	webViewBridgeMu       sync.RWMutex
-	webViewBridgePort     int
-	webViewBridgeHosts    = map[string]bool{}
-	webViewBridgeSuffixes = map[string]bool{}
-	webViewBridgeCookies  = map[string]string{}
-	webViewBridgeAgents   = map[string]string{}
-	webViewLocalClient    = &http.Client{Timeout: 25 * time.Second}
+	webViewBridgeMu            sync.RWMutex
+	webViewBridgePort          int
+	webViewBridgeHosts         = map[string]bool{}
+	webViewBridgeSuffixes      = map[string]bool{}
+	webViewBridgeFetchHosts    = map[string]bool{}
+	webViewBridgeFetchSuffixes = map[string]bool{}
+	webViewBridgeCookies       = map[string]string{}
+	webViewBridgeAgents        = map[string]string{}
+	webViewLocalClient         = &http.Client{Timeout: 25 * time.Second}
 )
 
 func appendBridgeTarget(hosts *[]string, suffixes *[]string, raw string) {
@@ -43,12 +45,24 @@ func appendBridgeTarget(hosts *[]string, suffixes *[]string, raw string) {
 func (engine *nativeEngine) setWebViewBridge(port int, rawHost, source, cookie, userAgent string) map[string]any {
 	hosts := make([]string, 0, 8)
 	suffixes := make([]string, 0, 4)
+	// Fetch routing (Downloader.Fetch → WebView bridge) is restricted to
+	// the primary verified hosts only: the host the user actually
+	// verified plus the descriptor's BaseURL/Aliases. Descriptor Hosts /
+	// HostSuffixes (CDN and embed hosts from the module manifest) stay
+	// in the cookie/UA registries but must NOT route fetches through
+	// the bridge — rendered embed pages can self-destruct (top-level
+	// checks wiping the body), breaking token extraction.
+	fetchHosts := make([]string, 0, 4)
+	fetchSuffixes := make([]string, 0, 2)
 	appendBridgeTarget(&hosts, &suffixes, rawHost)
+	appendBridgeTarget(&fetchHosts, &fetchSuffixes, rawHost)
 	if source != "" {
 		if desc, ok := registeredDescriptor(canonicalProviderSource(source)); ok {
 			appendBridgeTarget(&hosts, &suffixes, desc.BaseURL)
+			appendBridgeTarget(&fetchHosts, &fetchSuffixes, desc.BaseURL)
 			for _, alias := range desc.Aliases {
 				appendBridgeTarget(&hosts, &suffixes, alias)
+				appendBridgeTarget(&fetchHosts, &fetchSuffixes, alias)
 			}
 			for _, host := range desc.Hosts {
 				appendBridgeTarget(&hosts, &suffixes, host)
@@ -88,6 +102,12 @@ func (engine *nativeEngine) setWebViewBridge(port int, rawHost, source, cookie, 
 		if userAgent != "" {
 			webViewBridgeAgents[suffix] = userAgent
 		}
+	}
+	for _, h := range fetchHosts {
+		webViewBridgeFetchHosts[h] = true
+	}
+	for _, suffix := range fetchSuffixes {
+		webViewBridgeFetchSuffixes[suffix] = true
 	}
 	webViewBridgeMu.Unlock()
 
@@ -223,6 +243,35 @@ func isWebViewBridgeHost(rawURL string) (int, string, bool) {
 	ok := port > 0 && webViewBridgeHosts[host]
 	if !ok && port > 0 {
 		for suffix := range webViewBridgeSuffixes {
+			if strings.HasSuffix(host, suffix) {
+				ok = true
+				break
+			}
+		}
+	}
+	webViewBridgeMu.RUnlock()
+	return port, host, ok
+}
+
+// isWebViewBridgeFetchHost mirrors isWebViewBridgeHost but only matches
+// the primary verified hosts (rawHost + descriptor BaseURL/Aliases).
+// Downloader.Fetch uses it to decide whether a GET may be routed
+// through the WebView bridge; descriptor CDN/embed hosts deliberately
+// do not match here.
+func isWebViewBridgeFetchHost(rawURL string) (int, string, bool) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return 0, "", false
+	}
+	host := strings.ToLower(u.Hostname())
+	if host == "" {
+		return 0, "", false
+	}
+	webViewBridgeMu.RLock()
+	port := webViewBridgePort
+	ok := port > 0 && webViewBridgeFetchHosts[host]
+	if !ok && port > 0 {
+		for suffix := range webViewBridgeFetchSuffixes {
 			if strings.HasSuffix(host, suffix) {
 				ok = true
 				break
