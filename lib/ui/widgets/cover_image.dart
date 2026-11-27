@@ -79,7 +79,9 @@ class DramaCover extends StatelessWidget {
             // 潮流AV 的縮圖是橫幅 DVD 封面（主體在右邊三分一），2:3 直身
             // 卡片置中裁切會切走主體，改為靠右裁切，顯示最右邊的部分。
             // 其他來源的封面維持置中。
-            alignment: drama.source == 'chaoliu' || drama.source == '7mmtv'
+            alignment: drama.source == 'chaoliu' ||
+                    drama.source == '7mmtv' ||
+                    drama.source == 'supjav-cookie'
                 ? Alignment.centerRight
                 : Alignment.center,
           ),
