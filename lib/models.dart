@@ -24,6 +24,7 @@ class SourceSite {
     this.metadata = false,
     this.adult = false,
     this.vipPrompt = true,
+    this.coverAlign = '',
   });
   factory SourceSite.fromJson(Map<String, dynamic> json) => SourceSite(
     json['id'] as String? ?? '',
@@ -42,6 +43,7 @@ class SourceSite {
     metadata: json['metadata'] == true,
     adult: json['adult'] == true,
     vipPrompt: json['vipPrompt'] != false,
+    coverAlign: json['coverAlign'] as String? ?? '',
   );
   final String id;
   final String name;
@@ -59,6 +61,9 @@ class SourceSite {
   final bool metadata;
   final bool adult;
   final bool vipPrompt;
+  // 模組 manifest 申報的封面裁切方向（'right'/'left'/''），供封面組件決定
+  // 橫幅封面在直身卡片的裁切位置；未申報時為空字串。
+  final String coverAlign;
   bool get onlineSearch => pagedSearch;
   String get groupId => group.isEmpty ? id : group;
   String get groupName => groupLabel.isEmpty ? name : groupLabel;

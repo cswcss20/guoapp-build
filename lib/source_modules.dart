@@ -7,6 +7,7 @@ class SourceModule {
     this.hosts = const [],
     this.capabilities = const [],
     this.adult = false,
+    this.coverAlign = '',
     this.installed = false,
     this.previous = '',
     this.token = '',
@@ -22,6 +23,7 @@ class SourceModule {
         .whereType<String>()
         .toList(),
     adult: json['adult'] == true,
+    coverAlign: json['coverAlign'] as String? ?? '',
     installed: json['installed'] == true,
     previous: json['previous'] as String? ?? '',
     token: json['token'] as String? ?? '',
@@ -34,6 +36,7 @@ class SourceModule {
   final List<String> hosts;
   final List<String> capabilities;
   final bool adult;
+  final String coverAlign;
   final bool installed;
   final String previous;
   final String token;

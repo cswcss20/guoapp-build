@@ -17,6 +17,7 @@ type nativeSourceInfo struct {
 	Metadata        bool   `json:"metadata"`
 	Adult           bool   `json:"adult"`
 	VIPPrompt       bool   `json:"vipPrompt"`
+	CoverAlign      string `json:"coverAlign,omitempty"`
 }
 
 func (engine *nativeEngine) sourceList() []nativeSourceInfo {
@@ -32,6 +33,7 @@ func (engine *nativeEngine) sourceList() []nativeSourceInfo {
 			ID: id, Name: descriptor.Name, Description: descriptor.Description,
 			Group: descriptor.Group, GroupName: descriptor.GroupName, EntryName: descriptor.EntryName,
 			Available: nativeSourceAvailable(id), VIPPrompt: !descriptor.SkipVIPPrompt, Adult: descriptor.Adult,
+			CoverAlign: descriptor.CoverAlign,
 		}
 		_, search := providerAs[Searcher](p)
 		_, warningSearch := providerAs[WarningSearcher](p)

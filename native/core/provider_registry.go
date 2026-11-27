@@ -33,6 +33,9 @@ type SourceDescriptor struct {
 	KeepDetailEpisodes bool
 	ContinuousFeed     bool
 	BrowserFingerprint bool
+	// CoverAlign 是模組在 manifest 申報的封面裁切方向（"right"/"left"/""），
+	// 供前端決定橫幅 DVD 封面在直身卡片的裁切位置。
+	CoverAlign         string
 	ValidCategory      func(category string) bool
 	Rankings           []RankingBoard
 }

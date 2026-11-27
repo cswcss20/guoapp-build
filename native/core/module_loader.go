@@ -73,6 +73,7 @@ type ModuleManifest struct {
 	KeepDetailEpisodes bool     `json:"keepDetailEpisodes"`
 	ContinuousFeed     bool     `json:"continuousFeed"`
 	BrowserFingerprint bool     `json:"browserFingerprint"`
+	CoverAlign         string   `json:"coverAlign"`
 
 	Rankings       []ModuleRanking `json:"rankings"`
 	MediaAuthPaths []string        `json:"mediaAuthPaths"`
@@ -190,6 +191,7 @@ func (module *jsModule) descriptor() SourceDescriptor {
 		KeepDetailEpisodes: module.manifest.KeepDetailEpisodes,
 		ContinuousFeed:     module.manifest.ContinuousFeed,
 		BrowserFingerprint: module.manifest.BrowserFingerprint,
+		CoverAlign:         module.manifest.CoverAlign,
 	}
 }
 

@@ -13,6 +13,23 @@ import 'motion/motion_widgets.dart';
 const vipGold = Color(0xFFF6C86B);
 const onVipGold = Color(0xFF40300D);
 
+// 封面裁切方向由模組在 manifest 的 coverAlign 申報（"right"/"left"），
+// 經站源註冊表查回；未申報的舊模組保留原有寫死名單，行為不變。
+Alignment _coverAlignment(String source) {
+  switch (SourceSite.byId(source).coverAlign) {
+    case 'right':
+      return Alignment.centerRight;
+    case 'left':
+      return Alignment.centerLeft;
+    case '':
+      return const {'chaoliu', '7mmtv', 'supjav-cookie'}.contains(source)
+          ? Alignment.centerRight
+          : Alignment.center;
+    default:
+      return Alignment.center;
+  }
+}
+
 class VipBadge extends StatelessWidget {
   const VipBadge({super.key});
 
@@ -76,14 +93,10 @@ class DramaCover extends StatelessWidget {
             drama: drama,
             repository: AppScope.of(context).repository,
             placeholder: placeholder,
-            // 潮流AV 的縮圖是橫幅 DVD 封面（主體在右邊三分一），2:3 直身
-            // 卡片置中裁切會切走主體，改為靠右裁切，顯示最右邊的部分。
-            // 其他來源的封面維持置中。
-            alignment: drama.source == 'chaoliu' ||
-                    drama.source == '7mmtv' ||
-                    drama.source == 'supjav-cookie'
-                ? Alignment.centerRight
-                : Alignment.center,
+            // 潮流AV 等來源的縮圖是橫幅 DVD 封面（主體在右邊三分一），2:3 直身
+            // 卡片置中裁切會切走主體；模組在 manifest 申報 coverAlign 後
+            // 按申報方向裁切，顯示對應部分。其他來源的封面維持置中。
+            alignment: _coverAlignment(drama.source),
           ),
       ],
     );
