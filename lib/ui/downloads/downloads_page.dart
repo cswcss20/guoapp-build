@@ -724,9 +724,12 @@ class _DownloadsPageState extends State<DownloadsPage>
   }
 
   (int, double, double) _grid(BuildContext context, double width) {
-    if (AppScope.formFactorOf(context) == FormFactor.phone) return (3, 10, 20);
+    final landscape = widget.store.coverCardAspect == 'landscape';
+    if (AppScope.formFactorOf(context) == FormFactor.phone) {
+      return (landscape ? 2 : 3, 10, 20);
+    }
     final desktop = AppScope.formFactorOf(context) == FormFactor.window;
-    final minimum = desktop ? 140.0 : 120.0;
+    final minimum = (desktop ? 140.0 : 120.0) * (landscape ? 1.6 : 1.0);
     final gap = desktop ? 18.0 : 16.0;
     final columns = ((width + gap) / (minimum + gap)).floor().clamp(1, 99);
     return (columns, gap, desktop ? 22 : 20);
@@ -762,7 +765,11 @@ class _DownloadsPageState extends State<DownloadsPage>
             crossAxisCount: columns,
             crossAxisSpacing: gap,
             mainAxisSpacing: runGap,
-            mainAxisExtent: ProgressPoster.extentFor(context, tile),
+            mainAxisExtent: ProgressPoster.extentFor(
+              context,
+              tile,
+              coverAspect: widget.store.coverCardAspect,
+            ),
           ),
           itemCount: view.downloaded.length,
           itemBuilder: (context, index) {
@@ -776,6 +783,7 @@ class _DownloadsPageState extends State<DownloadsPage>
               child: ProgressPoster(
                 drama: item.drama,
                 width: tile,
+                coverAspect: widget.store.coverCardAspect,
                 progress: null,
                 caption:
                     '${item.episodes.length} 集 · ${formatBytes(item.bytes)}',

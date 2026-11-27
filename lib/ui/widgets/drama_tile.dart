@@ -10,6 +10,11 @@ import 'motion/motion_widgets.dart';
 
 const _coverRadius = 12.0;
 
+/// 卡片封面比例：直圖 2:3（預設）／橫圖 16:9。mode 來自
+/// LocalStore 的 coverCardAspect 設定（'portrait' / 'landscape'）。
+double coverCardAspectRatio(String mode) =>
+    mode == 'landscape' ? 16 / 9 : 2 / 3;
+
 class _PosterButton extends StatefulWidget {
   const _PosterButton({
     required this.cover,
@@ -20,6 +25,7 @@ class _PosterButton extends StatefulWidget {
     this.focusNode,
     this.autofocus = false,
     this.checked,
+    this.aspectRatio = 2 / 3,
   });
   final Widget cover;
   final List<Widget> caption;
@@ -29,6 +35,7 @@ class _PosterButton extends StatefulWidget {
   final FocusNode? focusNode;
   final bool autofocus;
   final bool? checked;
+  final double aspectRatio;
 
   @override
   State<_PosterButton> createState() => _PosterButtonState();
@@ -58,7 +65,7 @@ class _PosterButtonState extends State<_PosterButton> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AspectRatio(
-            aspectRatio: 2 / 3,
+            aspectRatio: widget.aspectRatio,
             child: FocusOutline(
               visible: visible,
               radius: _coverRadius,
@@ -131,11 +138,13 @@ class DramaTile extends StatelessWidget {
     this.autofocus = false,
     this.showScore = false,
     this.exploreBlur = false,
+    this.coverAspect = 'portrait',
   });
   final Drama drama;
   final VoidCallback onTap;
   final bool showScore;
   final bool exploreBlur;
+  final String coverAspect;
   final String? subtitle;
   final int? rank;
   final VoidCallback? onMore;
@@ -154,15 +163,21 @@ class DramaTile extends StatelessWidget {
     color: Theme.of(context).colorScheme.onSurfaceVariant,
   );
 
-  static double extentFor(BuildContext context, double width) {
+  static double extentFor(
+    BuildContext context,
+    double width, {
+    String coverAspect = 'portrait',
+  }) {
     final scaler = MediaQuery.textScalerOf(context);
     final title = scaler.scale(titleStyle(context).fontSize!) * 1.3 * 2;
     final subtitle = scaler.scale(subtitleStyle(context).fontSize!) * 1.3;
-    return (width * 1.5 + 9 + title + 4 + subtitle).ceilToDouble();
+    final cover = width / coverCardAspectRatio(coverAspect);
+    return (cover + 9 + title + 4 + subtitle).ceilToDouble();
   }
 
   @override
   Widget build(BuildContext context) => _PosterButton(
+    aspectRatio: coverCardAspectRatio(coverAspect),
     cover: DramaCover(
       drama: drama,
       radius: _coverRadius,
@@ -200,6 +215,7 @@ class ProgressPoster extends StatelessWidget {
     this.width = 100,
     this.selected,
     this.badge,
+    this.coverAspect = 'portrait',
   });
   final Drama drama;
   final double? progress;
@@ -211,13 +227,19 @@ class ProgressPoster extends StatelessWidget {
   final FocusNode? focusNode;
   final double width;
   final bool? selected;
+  final String coverAspect;
 
-  static double extentFor(BuildContext context, double width) {
+  static double extentFor(
+    BuildContext context,
+    double width, {
+    String coverAspect = 'portrait',
+  }) {
     final scaler = MediaQuery.textScalerOf(context);
     final television = AppScope.of(context).television;
     final title = scaler.scale(television ? 15 : 14) * 1.3;
     final caption = scaler.scale(television ? 13 : 12) * 1.3;
-    return (width * 1.5 + 8 + title + 2 + caption).ceilToDouble();
+    final cover = width / coverCardAspectRatio(coverAspect);
+    return (cover + 8 + title + 2 + caption).ceilToDouble();
   }
 
   @override
@@ -227,6 +249,7 @@ class ProgressPoster extends StatelessWidget {
     return SizedBox(
       width: width,
       child: _PosterButton(
+        aspectRatio: coverCardAspectRatio(coverAspect),
         cover: Stack(
           fit: StackFit.expand,
           children: [

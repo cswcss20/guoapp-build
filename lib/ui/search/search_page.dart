@@ -561,6 +561,7 @@ class _SearchPageState extends State<SearchPage> {
               sliver: DramaSliverGrid(
                 width: constraints.maxWidth - inset * 2,
                 items: results.items,
+                coverAspect: widget.store.coverCardAspect,
                 autofocus: television,
                 onOpen: _open,
                 onMore: (drama) => quickFollow(context, widget.store, drama),
@@ -656,6 +657,7 @@ class _SearchPageState extends State<SearchPage> {
             sliver: DramaSliverGrid(
               width: constraints.maxWidth - inset * 2,
               items: progress.items,
+              coverAspect: widget.store.coverCardAspect,
               autofocus: television,
               onOpen: _openCross,
               onMore: (drama) => quickFollow(context, widget.store, drama),

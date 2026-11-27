@@ -22,6 +22,7 @@ const _settingsFile = 'settings.json';
 const _displayModes = {'auto', 'television', 'phone', 'pad', 'window'};
 const _themeModes = {'light', 'dark', 'system'};
 const coverBlurLaunchModes = {'off': '关闭', 'adult': '仅限制级', 'all': '全部'};
+const coverCardAspectModes = {'portrait': '直图', 'landscape': '横图'};
 const _movedFlags = {
   'followSystemColor': 'followSystemColor',
   'checkUpdates': 'checkUpdates',
@@ -506,6 +507,22 @@ class LocalStore extends ChangeNotifier {
     _ => _flag('blurCoversOnLaunch', false) ? 'all' : 'off',
   };
   bool get blurAllCovers => _flag('blurAllCovers', true);
+  String get coverCardAspect {
+    final value = _settings['coverCardAspect'];
+    return coverCardAspectModes.containsKey(value)
+        ? value as String
+        : 'portrait';
+  }
+
+  /// 卡片封面比例可按「站源|分類」逐頁覆蓋，未設定時用全域預設。
+  String coverCardAspectFor(String sourceId, String categoryId) {
+    final aspects = _settings['coverCardAspects'];
+    if (aspects is Map) {
+      final value = aspects['$sourceId|$categoryId'];
+      if (coverCardAspectModes.containsKey(value)) return value as String;
+    }
+    return coverCardAspect;
+  }
   bool get checkUpdates => _flag('checkUpdates', true);
   bool get autoExport => _flag('exportAfterDownload', false);
   bool get deleteAfterAutoExport => _flag('deleteAfterAutoExport', false);
@@ -757,6 +774,25 @@ class LocalStore extends ChangeNotifier {
       ? _setting('blurCoversLaunch', value)
       : Future.value();
   Future<void> setBlurAllCovers(bool value) => _setting('blurAllCovers', value);
+  Future<void> setCoverCardAspect(String value) =>
+      coverCardAspectModes.containsKey(value)
+      ? _setting('coverCardAspect', value)
+      : Future.value();
+  Future<void> setCoverCardAspectFor(
+    String sourceId,
+    String categoryId,
+    String value,
+  ) => coverCardAspectModes.containsKey(value)
+      ? _queue(
+          () => _saveSettings({
+            ..._settings,
+            'coverCardAspects': {
+              ..._map(_settings['coverCardAspects']),
+              '$sourceId|$categoryId': value,
+            },
+          }),
+        )
+      : Future.value();
   Future<void> setCheckUpdates(bool value) => _setting('checkUpdates', value);
   Future<void> setAutoExport(bool value) =>
       _setting('exportAfterDownload', value);
@@ -1184,6 +1220,8 @@ class LocalStore extends ChangeNotifier {
       'blurCoversButton': blurCoversButton,
       'blurCoversLaunch': blurCoversLaunch,
       'blurAllCovers': blurAllCovers,
+      'coverCardAspect': coverCardAspect,
+      'coverCardAspects': _map(_settings['coverCardAspects']),
       'forceLogin': forceLogin,
       'checkUpdates': checkUpdates,
       'shareUsage': shareUsage,
@@ -1229,6 +1267,22 @@ class LocalStore extends ChangeNotifier {
     if (data.containsKey('blurCoversLaunch') &&
         !coverBlurLaunchModes.containsKey(data['blurCoversLaunch'])) {
       throw const FormatException('备份封面模糊设置无效');
+    }
+    if (data.containsKey('coverCardAspect') &&
+        !coverCardAspectModes.containsKey(data['coverCardAspect'])) {
+      throw const FormatException('备份卡片封面设置无效');
+    }
+    if (data['coverCardAspects'] case final Object aspects) {
+      if (aspects is! Map ||
+          aspects.length > 200 ||
+          aspects.entries.any(
+            (entry) =>
+                entry.key is! String ||
+                !(entry.key as String).contains('|') ||
+                !coverCardAspectModes.containsKey(entry.value),
+          )) {
+        throw const FormatException('备份卡片封面设置无效');
+      }
     }
     if (data.containsKey('forceLogin') && data['forceLogin'] is! bool) {
       throw const FormatException('备份登录设置无效');
@@ -1347,6 +1401,10 @@ class LocalStore extends ChangeNotifier {
           'blurCoversLaunch': mode
         else if (data['blurCoversOnLaunch'] case final bool launch)
           'blurCoversLaunch': launch ? 'all' : 'off',
+        if (data['coverCardAspect'] case final String aspect)
+          'coverCardAspect': aspect,
+        if (data['coverCardAspects'] case final Map aspects)
+          'coverCardAspects': aspects,
       },
       _usersFile: {
         'profiles': [for (final profile in profiles) profile.toJson()],

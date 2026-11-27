@@ -17,6 +17,7 @@ import '../detail/detail_page.dart';
 import '../widgets/bar_button.dart';
 import '../widgets/category_tabs.dart';
 import '../widgets/choice_panel.dart';
+import '../widgets/cover_aspect_toggle.dart';
 import '../widgets/drama_grid.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/follow_button.dart';
@@ -238,6 +239,21 @@ class ExplorePageState extends State<ExplorePage> {
                           ),
                     ],
                     actions: [
+                      CoverAspectToggle(
+                        value: widget.store.coverCardAspectFor(
+                          source.id,
+                          explore.tab.id,
+                        ),
+                        onChanged: (mode) => unawaited(
+                          widget.store
+                              .setCoverCardAspectFor(
+                                source.id,
+                                explore.tab.id,
+                                mode,
+                              )
+                              .catchError((Object _) {}),
+                        ),
+                      ),
                       BarButton(
                         icon: Icons.live_tv_rounded,
                         tooltip: zh('直播'),
@@ -404,7 +420,13 @@ class ExplorePageState extends State<ExplorePage> {
     final bar = _filterBar(explore, tab, inset);
     final Widget content;
     if (feed.items.isEmpty) {
-      content = FadeSwitcher(child: _status(feed, inset));
+      content = FadeSwitcher(
+        child: _status(
+          feed,
+          inset,
+          widget.store.coverCardAspectFor(explore.source?.id ?? '', tab.id),
+        ),
+      );
     } else {
       final phone = AppScope.formFactorOf(context) == FormFactor.phone;
       final desktop = AppScope.formFactorOf(context) == FormFactor.window;
@@ -449,11 +471,12 @@ class ExplorePageState extends State<ExplorePage> {
     );
   }
 
-  Widget _status(DramaFeed feed, double inset) {
+  Widget _status(DramaFeed feed, double inset, String coverAspect) {
     if (feed.loading) {
       final desktop = AppScope.formFactorOf(context) == FormFactor.window;
       return DramaGridSkeleton(
         key: const ValueKey('loading'),
+        coverAspect: coverAspect,
         padding: EdgeInsets.fromLTRB(inset, desktop ? 20 : 16, inset, 0),
       );
     }
@@ -531,6 +554,10 @@ class ExplorePageState extends State<ExplorePage> {
               sliver: DramaSliverGrid(
                 width: constraints.maxWidth - inset * 2,
                 items: items,
+                coverAspect: widget.store.coverCardAspectFor(
+                  explore.source?.id ?? '',
+                  tab.id,
+                ),
                 rankOf: (drama) => explore.rankIn(tab, drama),
                 autofocus:
                     television && hero == null && ShellForeground.of(context),

@@ -774,14 +774,15 @@ class _FollowPageState extends State<FollowPage> {
   );
 
   (int, double, double) _grid(BuildContext context, double width) {
+    final landscape = widget.store.coverCardAspect == 'landscape';
     switch (AppScope.formFactorOf(context)) {
       case FormFactor.phone:
-        return (3, 10, 20);
+        return (landscape ? 2 : 3, 10, 20);
       case FormFactor.television:
-        return (6, 20, 24);
+        return (landscape ? 4 : 6, 20, 24);
       case FormFactor.pad || FormFactor.window:
         final desktop = AppScope.formFactorOf(context) == FormFactor.window;
-        final minimum = desktop ? 140.0 : 120.0;
+        final minimum = (desktop ? 140.0 : 120.0) * (landscape ? 1.6 : 1.0);
         final gap = desktop ? 18.0 : 16.0;
         final columns = ((width + gap) / (minimum + gap)).floor().clamp(1, 99);
         return (columns, gap, desktop ? 22 : 20);
@@ -1044,7 +1045,11 @@ class _FollowPageState extends State<FollowPage> {
                       crossAxisCount: columns,
                       crossAxisSpacing: gap,
                       mainAxisSpacing: runGap,
-                      mainAxisExtent: ProgressPoster.extentFor(context, tile),
+                      mainAxisExtent: ProgressPoster.extentFor(
+                        context,
+                        tile,
+                        coverAspect: widget.store.coverCardAspect,
+                      ),
                     ),
                     itemCount: dramas.length,
                     itemBuilder: (context, index) {
@@ -1109,6 +1114,7 @@ class _FollowPageState extends State<FollowPage> {
     return ProgressPoster(
       drama: drama,
       width: width,
+      coverAspect: widget.store.coverCardAspect,
       focusNode: focusNode,
       progress: watch != null && total > 0 ? watch.episode / total : 0,
       caption: caption,

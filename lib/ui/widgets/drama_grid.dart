@@ -11,35 +11,61 @@ import 'drama_tile.dart';
 import 'focus_ring.dart';
 import 'motion/motion_widgets.dart';
 
-(int, double, double) _gridLayout(BuildContext context, double width) =>
-    switch (AppScope.formFactorOf(context)) {
-      FormFactor.phone => (3, 10.0, 22.0),
-      FormFactor.television => (
-        ((width + 20) / 120).floor().clamp(3, 8),
-        20.0,
-        24.0,
-      ),
-      FormFactor.window => (
-        math.max(2, ((width + 18) / 178).floor()),
-        18.0,
-        24.0,
-      ),
-      FormFactor.pad => ((width / 180).floor().clamp(4, 9), 18.0, 22.0),
-    };
+(int, double, double) _gridLayout(
+  BuildContext context,
+  double width, {
+  bool landscape = false,
+}) => switch (AppScope.formFactorOf(context)) {
+  FormFactor.phone => (landscape ? 2 : 3, 10.0, 22.0),
+  FormFactor.television => (
+    ((width + 20) / (landscape ? 192 : 120)).floor().clamp(3, 8),
+    20.0,
+    24.0,
+  ),
+  FormFactor.window => (
+    math.max(2, ((width + 18) / (landscape ? 285 : 178)).floor()),
+    18.0,
+    24.0,
+  ),
+  FormFactor.pad => (
+    (width / (landscape ? 288 : 180)).floor().clamp(
+      landscape ? 3 : 4,
+      landscape ? 7 : 9,
+    ),
+    18.0,
+    22.0,
+  ),
+};
 
-double dramaTileWidth(BuildContext context, double width) {
-  final (columns, spacing, _) = _gridLayout(context, width);
+double dramaTileWidth(
+  BuildContext context,
+  double width, {
+  String coverAspect = 'portrait',
+}) {
+  final (columns, spacing, _) = _gridLayout(
+    context,
+    width,
+    landscape: coverAspect == 'landscape',
+  );
   return (width - (columns - 1) * spacing) / columns;
 }
 
-SliverGridDelegate dramaGridDelegate(BuildContext context, double width) {
-  final (columns, spacing, runSpacing) = _gridLayout(context, width);
-  final tile = dramaTileWidth(context, width);
+SliverGridDelegate dramaGridDelegate(
+  BuildContext context,
+  double width, {
+  String coverAspect = 'portrait',
+}) {
+  final (columns, spacing, runSpacing) = _gridLayout(
+    context,
+    width,
+    landscape: coverAspect == 'landscape',
+  );
+  final tile = dramaTileWidth(context, width, coverAspect: coverAspect);
   return SliverGridDelegateWithFixedCrossAxisCount(
     crossAxisCount: columns,
     crossAxisSpacing: spacing,
     mainAxisSpacing: runSpacing,
-    mainAxisExtent: DramaTile.extentFor(context, tile),
+    mainAxisExtent: DramaTile.extentFor(context, tile, coverAspect: coverAspect),
   );
 }
 
@@ -73,8 +99,10 @@ class DramaSliverGrid extends StatelessWidget {
     this.entered,
     this.showScore = false,
     this.exploreBlur = false,
+    this.coverAspect = 'portrait',
   });
   final bool exploreBlur;
+  final String coverAspect;
   final double width;
   final List<Drama> items;
   final ValueChanged<Drama> onOpen;
@@ -91,9 +119,13 @@ class DramaSliverGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (columns, _, _) = _gridLayout(context, width);
+    final (columns, _, _) = _gridLayout(
+      context,
+      width,
+      landscape: coverAspect == 'landscape',
+    );
     return SliverGrid.builder(
-      gridDelegate: dramaGridDelegate(context, width),
+      gridDelegate: dramaGridDelegate(context, width, coverAspect: coverAspect),
       itemCount: items.length,
       itemBuilder: (context, index) {
         final drama = items[index];
@@ -105,6 +137,7 @@ class DramaSliverGrid extends StatelessWidget {
               wrapGridRow(index, columns, items.length, event),
           child: DramaTile(
             drama: drama,
+            coverAspect: coverAspect,
             rank: rankOf?.call(drama),
             subtitle: subtitleOf?.call(drama),
             autofocus: autofocus && index == 0,
@@ -267,8 +300,13 @@ class FeedFooter extends StatelessWidget {
 }
 
 class DramaGridSkeleton extends StatefulWidget {
-  const DramaGridSkeleton({super.key, required this.padding});
+  const DramaGridSkeleton({
+    super.key,
+    required this.padding,
+    this.coverAspect = 'portrait',
+  });
   final EdgeInsets padding;
+  final String coverAspect;
 
   @override
   State<DramaGridSkeleton> createState() => _DramaGridSkeletonState();
@@ -311,10 +349,15 @@ class _DramaGridSkeletonState extends State<DramaGridSkeleton>
         builder: (context, constraints) {
           final padding = widget.padding;
           final width = constraints.maxWidth - padding.horizontal;
-          final (columns, _, runSpacing) = _gridLayout(context, width);
+          final (columns, _, runSpacing) = _gridLayout(
+            context,
+            width,
+            landscape: widget.coverAspect == 'landscape',
+          );
           final extent = DramaTile.extentFor(
             context,
-            dramaTileWidth(context, width),
+            dramaTileWidth(context, width, coverAspect: widget.coverAspect),
+            coverAspect: widget.coverAspect,
           );
           final rows = constraints.hasBoundedHeight
               ? ((constraints.maxHeight - padding.vertical) /
@@ -329,9 +372,14 @@ class _DramaGridSkeletonState extends State<DramaGridSkeleton>
               primary: false,
               physics: const NeverScrollableScrollPhysics(),
               padding: padding,
-              gridDelegate: dramaGridDelegate(context, width),
+              gridDelegate: dramaGridDelegate(
+                context,
+                width,
+                coverAspect: widget.coverAspect,
+              ),
               itemCount: rows * columns,
-              itemBuilder: (context, _) => _SkeletonTile(fill: fill),
+              itemBuilder: (context, _) =>
+                  _SkeletonTile(fill: fill, coverAspect: widget.coverAspect),
             ),
           );
         },
@@ -341,8 +389,9 @@ class _DramaGridSkeletonState extends State<DramaGridSkeleton>
 }
 
 class _SkeletonTile extends StatelessWidget {
-  const _SkeletonTile({required this.fill});
+  const _SkeletonTile({required this.fill, this.coverAspect = 'portrait'});
   final Color fill;
+  final String coverAspect;
 
   @override
   Widget build(BuildContext context) {
@@ -371,7 +420,7 @@ class _SkeletonTile extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AspectRatio(
-          aspectRatio: 2 / 3,
+          aspectRatio: coverCardAspectRatio(coverAspect),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: fill,

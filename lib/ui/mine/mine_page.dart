@@ -116,6 +116,7 @@ class MinePage extends StatelessWidget {
     return ProgressPoster(
       drama: drama,
       width: width,
+      coverAspect: store.coverCardAspect,
       focusNode: focusNode,
       progress: total > 0 ? entry.episode / total : 0,
       caption: total > 0 && entry.episode >= total && entry.finished
@@ -130,7 +131,7 @@ class MinePage extends StatelessWidget {
   }
 
   Widget _phone(BuildContext context) {
-    const width = 100.0;
+    final width = store.coverCardAspect == 'landscape' ? 160.0 : 100.0;
     final history = store.history.take(20).toList();
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -153,7 +154,11 @@ class MinePage extends StatelessWidget {
           )
         else
           SizedBox(
-            height: ProgressPoster.extentFor(context, width),
+            height: ProgressPoster.extentFor(
+              context,
+              width,
+              coverAspect: store.coverCardAspect,
+            ),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -361,7 +366,9 @@ class MinePage extends StatelessWidget {
     double width, {
     required bool desktop,
   }) {
-    final minimum = desktop ? 140.0 : 120.0;
+    final minimum =
+        (desktop ? 140.0 : 120.0) *
+        (store.coverCardAspect == 'landscape' ? 1.6 : 1.0);
     final columnGap = desktop ? 18.0 : 16.0;
     final rowGap = desktop ? 22.0 : 20.0;
     final columns = ((width + columnGap) / (minimum + columnGap)).floor().clamp(

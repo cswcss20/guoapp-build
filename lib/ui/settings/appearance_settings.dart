@@ -235,6 +235,26 @@ class AppearanceSettings extends StatelessWidget {
                       }
                     : null,
               ),
+              const Divider(indent: 16, endIndent: 16),
+              SettingsTile(
+                title: '卡片封面',
+                subtitle:
+                    '${coverCardAspectModes[store.coverCardAspect]}（发现页可按分类单独切换）',
+                onTap: () async {
+                  final selection = await showOptionDialog(
+                    context,
+                    title: '卡片封面',
+                    options: coverCardAspectModes,
+                    selected: store.coverCardAspect,
+                  );
+                  if (selection != null && context.mounted) {
+                    await saveSetting(
+                      context,
+                      () => store.setCoverCardAspect(selection),
+                    );
+                  }
+                },
+              ),
             ],
             if (AppScope.of(context).television)
               SwitchTile(
