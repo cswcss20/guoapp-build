@@ -25,6 +25,7 @@ import 'episode_grid.dart';
 import 'mini_player.dart';
 import 'playback_handle.dart';
 import 'playback_sheets.dart';
+import 'player_home_button.dart';
 import 'player_lock.dart';
 import 'player_overlays.dart';
 import 'player_status.dart';
@@ -704,6 +705,8 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
                 '返回',
                 () => unawaited(Navigator.maybePop(context)),
               ),
+              if (PlayerHomeButton.available(context))
+                const PlayerHomeButton(size: 44),
               const Spacer(),
               if (widget.onMiniWindow case final onMiniWindow?)
                 _icon(Icons.picture_in_picture_alt_rounded, '小窗', onMiniWindow),
@@ -794,6 +797,8 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
           child: Row(
             children: [
               _icon(Icons.arrow_back_rounded, '退出全屏', () => _rotate(true)),
+              if (PlayerHomeButton.available(context))
+                const PlayerHomeButton(size: 44),
               const SizedBox(width: 4),
               Expanded(
                 child: Column(

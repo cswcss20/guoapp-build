@@ -564,7 +564,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
               ),
             )
-          else
+          else ...[
             for (final MapEntry(key: period, value: entries)
                 in periods.entries) ...[
               SliverPadding(
@@ -617,11 +617,12 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
               ),
             ],
-          SliverPadding(
-            padding: EdgeInsets.only(
-              bottom: AppScope.of(context).television ? 27 : 32,
+            SliverPadding(
+              padding: EdgeInsets.only(
+                bottom: AppScope.of(context).television ? 27 : 32,
+              ),
             ),
-          ),
+          ],
         ],
       );
     },

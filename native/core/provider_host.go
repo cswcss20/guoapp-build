@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -122,6 +123,29 @@ func (d *Downloader) Fetch(ctx context.Context, input HTTPRequest) (HTTPResponse
 	limit, timeout := input.Limit, input.Timeout
 	if limit <= 0 {
 		limit = 4 << 20
+	}
+	// 已登記 WebView 橋接的域名改走真瀏覽器抓頁：Cloudflare 只放行瀏覽器
+	// 內核，直連 HTTP 會被擋。橋接抓取要等頁面載入，唔受背景目錄 8 秒上限
+	// 約束，另用 30 秒。橋接回 CF 挑戰錯誤時直接回該錯誤（自愈引導會接手），
+	// 其他橋接失敗則照舊直連。
+	if input.Body == nil && (input.Method == "" || strings.EqualFold(input.Method, http.MethodGet)) {
+		if _, _, isBridge := isWebViewBridgeHost(input.URL); isBridge {
+			bridgeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			html, _, handled, bridgeErr := webViewBridgeFetch(bridgeCtx, input.URL)
+			cancel()
+			if handled {
+				if bridgeErr == nil {
+					body := []byte(html)
+					if int64(len(body)) > limit {
+						return HTTPResponse{Oversized: true}, fmt.Errorf("%s返回的数据过大或读取失败", input.Label)
+					}
+					return HTTPResponse{Status: http.StatusOK, Body: body}, nil
+				}
+				if strings.Contains(bridgeErr.Error(), "完成人机验证") {
+					return HTTPResponse{}, bridgeErr
+				}
+			}
+		}
 	}
 	if background, _ := ctx.Value(BackgroundCatalogKey{}).(bool); background && (timeout <= 0 || timeout > 8*time.Second) {
 		timeout = 8 * time.Second

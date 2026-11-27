@@ -31,15 +31,19 @@ Future<String?> applyModuleInstall(
   return null;
 }
 
-Future<String> installIndexedModules(
+Future<({int succeeded, int failed, String message})> installIndexedModules(
   AppRepository repository,
   LocalStore store,
   List<ModuleIndexEntry> entries, {
   bool enable = true,
+  String verb = '安装',
+  bool Function()? canContinue,
 }) async {
   final failures = <String>[];
   final notices = <String>[];
+  var succeeded = 0;
   for (final entry in entries) {
+    if (canContinue != null && !canContinue()) break;
     try {
       final warning = await applyModuleInstall(
         repository,
@@ -50,16 +54,21 @@ Future<String> installIndexedModules(
         ),
         enable: enable,
       );
+      succeeded++;
       if (warning != null) notices.add(warning);
     } catch (failure) {
       failures.add('${entry.name}：$failure');
     }
   }
-  return [
-    '已安装 ${entries.length - failures.length} 个站源',
-    if (failures.isNotEmpty) '${failures.length} 个失败：${failures.join('；')}',
-    ...notices,
-  ].join('，');
+  final message = succeeded == 0 && failures.isNotEmpty
+      ? '站源$verb失败：${failures.join('；')}'
+      : [
+          '已$verb $succeeded 个站源',
+          if (failures.isNotEmpty)
+            '${failures.length} 个失败：${failures.join('；')}',
+          ...notices,
+        ].join('，');
+  return (succeeded: succeeded, failed: failures.length, message: message);
 }
 
 Future<void> offerRestoredModules(
@@ -68,6 +77,7 @@ Future<void> offerRestoredModules(
 ) async {
   final wanted = store.takeRestoredModules();
   if (wanted.isEmpty || !store.profile.admin || store.locked) return;
+  final epoch = store.profileEpoch;
   final repository = AppScope.of(context).repository;
   final messenger = ScaffoldMessenger.of(context);
   final List<ModuleIndexEntry> entries;
@@ -99,7 +109,13 @@ Future<void> offerRestoredModules(
     );
     return;
   }
-  if (entries.isEmpty || !context.mounted) return;
+  if (entries.isEmpty ||
+      !context.mounted ||
+      !store.profile.admin ||
+      store.locked ||
+      store.profileEpoch != epoch) {
+    return;
+  }
   final accepted = await showDialog<bool>(
     context: context,
     builder: (_) => BatchInstallDialog(
@@ -111,15 +127,25 @@ Future<void> offerRestoredModules(
       ].join(''),
     ),
   );
-  if (accepted != true) return;
+  if (accepted != true ||
+      !context.mounted ||
+      !store.profile.admin ||
+      store.locked ||
+      store.profileEpoch != epoch) {
+    return;
+  }
   messenger.showSnackBar(SnackBar(content: Text(zh('正在安装 ${entries.length} 个模块'))));
-  final summary = await installIndexedModules(
+  final result = await installIndexedModules(
     repository,
     store,
     entries,
     enable: false,
+    canContinue: () =>
+        store.profile.admin && !store.locked && store.profileEpoch == epoch,
   );
-  messenger.showSnackBar(SnackBar(content: Text(summary)));
+  if (context.mounted && store.profileEpoch == epoch) {
+    messenger.showSnackBar(SnackBar(content: Text(result.message)));
+  }
 }
 
 class BatchInstallDialog extends StatelessWidget {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../core_bridge.dart';
+import '../../webview_bridge.dart';
 import '../app_scope.dart';
 import '../widgets/focus_ring.dart';
 
@@ -56,7 +57,8 @@ class _BrowserAuthViewState extends State<BrowserAuthView> {
   Timer? _poll;
   bool _busy = false;
   bool _saved = false;
-  String _status = '请在下方页面完成 Cloudflare 验证；通过后会自动保存 Cookie 与 UA。';
+  String _status = '请在下方页面完成 Cloudflare 验证；通过后会自动保存。'
+      '若页面已正常打开却没有自动保存，可点「保存验证结果」手动保存。';
 
   AppRepository get _repository => AppScope.of(context).repository;
 
@@ -90,12 +92,10 @@ class _BrowserAuthViewState extends State<BrowserAuthView> {
         pairs.add('$name=${cookie.value}');
       }
       final cookieHeader = pairs.join('; ');
-      if (!cookieHeader.contains('cf_clearance=')) {
-        if (!auto) {
-          _setStatus('还没有拿到 cf_clearance，请先过完验证再点保存。');
-        }
-        return;
-      }
+      final hasClearance = cookieHeader.contains('cf_clearance=');
+      // 自动保存仍要求拿到 cf_clearance；手动保存则照样保存当前 Cookie 与
+      // UA —— 有些站直接放行浏览器、不发 cf_clearance，之后靠桥接抓页即可。
+      if (!hasClearance && auto) return;
 
       var ua = _fallbackUA;
       try {
@@ -120,11 +120,29 @@ class _BrowserAuthViewState extends State<BrowserAuthView> {
         'cookie': cookieHeader,
         'ua': ua,
       });
+      // 同时登记 WebView 桥接：之后该域名的主机请求改走真浏览器抓页，
+      // 直连被 Cloudflare 挡时也能拿到页面。登记失败不影响上面的保存。
+      var bridged = false;
+      try {
+        if (WebViewBridge.supported) {
+          await WebViewBridge.registerVerified(
+            _repository,
+            url: _authUrl,
+            source: widget.source,
+            cookies: cookieHeader,
+            userAgent: ua,
+          );
+          bridged = true;
+        }
+      } catch (_) {}
       _poll?.cancel();
       if (mounted) {
         setState(() {
           _saved = true;
-          _status = '已保存 ${pairs.length} 个 Cookie（含 cf_clearance）和浏览器 UA。'
+          _status =
+              '已保存 ${pairs.length} 个 Cookie'
+              '${hasClearance ? '（含 cf_clearance）' : ''}和浏览器 UA'
+              '${bridged ? '，并已启用浏览器桥接抓页' : ''}。'
               '可以返回模块正常使用了。';
         });
       }

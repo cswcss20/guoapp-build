@@ -281,7 +281,7 @@ class _DetailPageState extends State<DetailPage> {
       if (_direct) await _awaitVideoSize();
       if (!mounted) return;
       final watched = await _play(details.resumeIndex, resume: true);
-      if (!mounted) return;
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
       if (_direct && watched) {
         Navigator.pop(context);
         return;
@@ -386,7 +386,9 @@ class _DetailPageState extends State<DetailPage> {
     await closed;
     _watching = false;
     _watched = null;
-    if (!mounted || _curtain) return true;
+    if (!mounted || _curtain || ModalRoute.of(context)?.isCurrent != true) {
+      return true;
+    }
     final played = handle.session.detail.drama.id;
     if (played != details.drama.id) {
       final season = details.seasons

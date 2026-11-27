@@ -17,17 +17,29 @@ import (
 const (
 	moduleIndexFormat  = 1
 	moduleIndexBytes   = 1 << 20
-	moduleFetchTimeout = 20 * time.Second
+	moduleFetchTimeout = 10 * time.Second
 )
 
 var (
 	moduleIndexAddresses = []string{
 		"https://raw.githubusercontent.com/cswcss20/hopeapp/main/module-store/index.json",
 		"https://cdn.jsdelivr.net/gh/cswcss20/hopeapp@main/module-store/index.json",
+		"https://fastly.jsdelivr.net/gh/cswcss20/hopeapp@main/module-store/index.json",
+		"https://testingcf.jsdelivr.net/gh/cswcss20/hopeapp@main/module-store/index.json",
+		"https://gh-proxy.org/https://raw.githubusercontent.com/cswcss20/hopeapp/main/module-store/index.json",
+		"https://gh-proxy.com/https://raw.githubusercontent.com/cswcss20/hopeapp/main/module-store/index.json",
+		"https://edgeone.gh-proxy.org/https://raw.githubusercontent.com/cswcss20/hopeapp/main/module-store/index.json",
+		"https://ghfast.top/https://raw.githubusercontent.com/cswcss20/hopeapp/main/module-store/index.json",
 	}
 	moduleFileAddresses = []string{
 		"https://raw.githubusercontent.com/%s/%s/%s",
 		"https://cdn.jsdelivr.net/gh/%s@%s/%s",
+		"https://fastly.jsdelivr.net/gh/%s@%s/%s",
+		"https://testingcf.jsdelivr.net/gh/%s@%s/%s",
+		"https://gh-proxy.org/https://raw.githubusercontent.com/%s/%s/%s",
+		"https://gh-proxy.com/https://raw.githubusercontent.com/%s/%s/%s",
+		"https://edgeone.gh-proxy.org/https://raw.githubusercontent.com/%s/%s/%s",
+		"https://ghfast.top/https://raw.githubusercontent.com/%s/%s/%s",
 	}
 	moduleIndexRepo = regexp.MustCompile(`^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$`)
 	moduleIndexTag  = regexp.MustCompile(`^v\d+\.\d+\.\d+$`)

@@ -24,6 +24,7 @@ import 'level_drag.dart';
 import 'mini_player.dart';
 import 'playback_sheets.dart';
 import 'playback_handle.dart';
+import 'player_home_button.dart';
 import 'player_lock.dart';
 import 'player_overlays.dart';
 import 'player_surface.dart';
@@ -932,6 +933,7 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
           tooltip: zh('返回'),
           style: IconButton.styleFrom(fixedSize: const Size.square(48)),
         ),
+        if (PlayerHomeButton.available(context)) const PlayerHomeButton(),
         Expanded(
           child: Column(
             mainAxisSize: MainAxisSize.min,

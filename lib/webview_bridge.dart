@@ -170,6 +170,25 @@ abstract final class WebViewBridge {
     );
     return true;
   }
+
+  /// 把已经在别的验证页拿到的 Cookie / UA 登记给核心桥接（例如模块卡上的
+  /// 浏览器验证页手动保存时），之后该域名的主机请求会改走桥接抓页。
+  static Future<void> registerVerified(
+    AppRepository repo, {
+    required String url,
+    required String source,
+    required String cookies,
+    required String userAgent,
+  }) async {
+    final port = await _ensureServer();
+    await repo.registerWebViewBridge(
+      port: port,
+      url: url,
+      source: source,
+      cookies: cookies,
+      userAgent: userAgent,
+    );
+  }
 }
 
 class _ChallengeResult {
