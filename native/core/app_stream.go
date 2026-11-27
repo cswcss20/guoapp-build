@@ -48,6 +48,15 @@ type nativeStreamSession struct {
 	cencMu       sync.Mutex
 	cenc         *cencLayout
 	adBlock      bool
+	// HLS 分片预取状态，见 app_stream_prefetch.go。
+	prefetchMu       sync.Mutex
+	prefetchSegments []string
+	prefetchIndex    map[string]int
+	prefetchCache    map[string]nativePrefetchEntry
+	prefetchOrder    []string
+	prefetchBytes    int64
+	prefetchInflight map[string]bool
+	prefetchSem      chan struct{}
 }
 
 type nativeStreamServer struct {
@@ -390,6 +399,9 @@ func (stream *nativeStreamServer) nativeServe(writer http.ResponseWriter, reques
 		http.NotFound(writer, request)
 		return
 	}
+	if asset.kind == "segment" {
+		stream.prefetchAhead(session, parts[1])
+	}
 	ctx, cancel := context.WithCancel(providerMediaContext(withProxySource(request.Context(), session.source), session.credentials))
 	defer cancel()
 	ctx = context.WithValue(ctx, nativeStreamDiagnosticKey{}, info)
@@ -412,6 +424,7 @@ func (stream *nativeStreamServer) nativeServe(writer http.ResponseWriter, reques
 			}
 			writer.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 			if request.Method == http.MethodGet {
+				session.notePlaylistSegments(body)
 				_, _ = io.WriteString(writer, session.lanPlaylist(request, body))
 			}
 		} else {
@@ -426,6 +439,15 @@ func (stream *nativeStreamServer) nativeServe(writer http.ResponseWriter, reques
 	if len(session.cencKey) > 0 && asset.kind == "media" {
 		stream.nativeServeDecrypted(ctx, writer, request, session, asset)
 		return
+	}
+	if asset.kind == "segment" {
+		if entry, hit := session.prefetchLookup(parts[1]); hit {
+			if entry.contentType != "" {
+				writer.Header().Set("Content-Type", entry.contentType)
+			}
+			http.ServeContent(writer, request, parts[1], time.Time{}, bytes.NewReader(entry.data))
+			return
+		}
 	}
 	upstream, err := http.NewRequestWithContext(ctx, request.Method, asset.address, nil)
 	if err != nil {
@@ -494,6 +516,7 @@ func (stream *nativeStreamServer) nativeServe(writer http.ResponseWriter, reques
 			return
 		}
 		writer.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+		session.notePlaylistSegments(rewritten)
 		_, _ = io.WriteString(writer, session.lanPlaylist(request, rewritten))
 		return
 	}
