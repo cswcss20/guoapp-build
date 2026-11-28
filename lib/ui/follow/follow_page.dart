@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core_bridge.dart';
 import '../../follow_list.dart';
 import '../../library_sync.dart';
 import '../../local_store.dart';
@@ -14,6 +15,7 @@ import '../search/search_page.dart';
 import '../settings/settings_rows.dart';
 import '../shell/app_shell.dart';
 import '../theme/motion.dart';
+import '../widgets/cover_image.dart';
 import '../widgets/drama_grid.dart';
 import '../widgets/drama_open.dart';
 import '../widgets/drama_tile.dart';
@@ -23,7 +25,9 @@ import '../widgets/page_header.dart';
 import '../widgets/search_field.dart';
 import '../widgets/status_view.dart';
 
-enum _FollowTab { dramas, tags }
+enum _FollowTab { dramas, tags, library }
+
+enum _LibraryKind { videos, actresses }
 
 typedef _View = ({
   List<Drama> follows,
@@ -60,6 +64,19 @@ class _FollowPageState extends State<FollowPage> {
   var _section = 0;
   Set<String>? _selection;
   var _syncing = false;
+  var _librarySource = '';
+  var _libraryKind = _LibraryKind.videos;
+  final _actressCache = <String, List<Drama>>{};
+  final _actressErrors = <String, String>{};
+  final _actressLoading = <String>{};
+
+  bool get _inActresses =>
+      _tab == _FollowTab.library && _libraryKind == _LibraryKind.actresses;
+
+  List<SourceSite> get _librarySites => [
+    for (final site in SourceSite.values)
+      if (site.library) site,
+  ];
 
   @override
   void dispose() {
@@ -88,6 +105,97 @@ class _FollowPageState extends State<FollowPage> {
       _filter = '';
       _selection = null;
     });
+  }
+
+  void _switchLibraryTab(String sourceId) {
+    if (_tab == _FollowTab.library && _librarySource == sourceId) return;
+    setState(() {
+      _tab = _FollowTab.library;
+      _librarySource = sourceId;
+      _libraryKind = _LibraryKind.videos;
+      _source = '';
+      _filter = '';
+      _selection = null;
+    });
+  }
+
+  void _switchLibraryKind(_LibraryKind kind) {
+    if (_libraryKind == kind) return;
+    setState(() {
+      _libraryKind = kind;
+      _selection = null;
+    });
+    if (kind == _LibraryKind.actresses) _ensureActresses(_librarySource);
+  }
+
+  void _ensureActresses(String source) {
+    if (source.isEmpty ||
+        _actressCache.containsKey(source) ||
+        _actressErrors.containsKey(source) ||
+        _actressLoading.contains(source)) {
+      return;
+    }
+    _actressLoading.add(source);
+    _loadActresses(source);
+  }
+
+  Future<void> _loadActresses(String source) async {
+    final repository = AppScope.of(context).repository;
+    try {
+      final items = <Drama>[];
+      final seen = <String>{};
+      for (var page = 1; page <= 20; page++) {
+        final result = await repository.libraryItems(
+          source,
+          kind: 'actresses',
+          page: page,
+        );
+        for (final drama in result.items) {
+          if (drama.id.isNotEmpty && seen.add(drama.id)) items.add(drama);
+        }
+        if (!result.hasMore) break;
+      }
+      if (!mounted) return;
+      setState(() {
+        _actressCache[source] = items;
+        _actressErrors.remove(source);
+        _actressLoading.remove(source);
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _actressErrors[source] = _actressErrorMessage(source, error);
+        _actressLoading.remove(source);
+      });
+    }
+  }
+
+  String _actressErrorMessage(String source, Object error) {
+    final name = SourceSite.byId(source).name;
+    final code = error is AppFailure ? error.code : '';
+    final message = '$error';
+    final unsupported =
+        code == 'library_write_unsupported' ||
+        message.contains('未支援') ||
+        message.contains('不支持') ||
+        message.contains('notImplemented') ||
+        message.contains('收藏種類') ||
+        message.contains('收藏种类');
+    if (unsupported) return '此模組版本未支援女優列表，請更新模組後再試。';
+    if (code == 'source_login' ||
+        message.contains('登入') ||
+        message.contains('登录')) {
+      return '$message\n請到「我的 › 模組 › $name」登入後再試。';
+    }
+    return '女優列表載入失敗：$message\n如未登入，請到「我的 › 模組 › $name」登入後再試。';
+  }
+
+  void _retryActresses(String source) {
+    setState(() {
+      _actressCache.remove(source);
+      _actressErrors.remove(source);
+    });
+    _ensureActresses(source);
   }
 
   void _switch(int section) {
@@ -346,13 +454,18 @@ class _FollowPageState extends State<FollowPage> {
     builder: (context, _) {
       final follows = widget.store.favorites;
       final tags = widget.store.favoriteTags;
+      final inLibrary = _tab == _FollowTab.library;
       final sources = _tab == _FollowTab.tags
           ? _tagSources(tags)
+          : inLibrary
+          ? const <SourceSite>[]
           : followedSources(follows);
       final source = sources.any((site) => site.id == _source) ? _source : '';
       final shown = [
         for (final drama in follows)
-          if ((source.isEmpty || drama.source == source) &&
+          if ((inLibrary
+                  ? drama.source == _librarySource
+                  : source.isEmpty || drama.source == source) &&
               matchesFollowTitle(drama, _query.text) &&
               _matches(drama))
             drama,
@@ -403,7 +516,10 @@ class _FollowPageState extends State<FollowPage> {
           }.toList()
         : {
             for (final drama in widget.store.favorites)
-              if (matchesFollowTitle(drama, query)) drama.title,
+              if ((_tab != _FollowTab.library ||
+                      drama.source == _librarySource) &&
+                  matchesFollowTitle(drama, query))
+                drama.title,
           }.toList(),
   );
 
@@ -533,38 +649,82 @@ class _FollowPageState extends State<FollowPage> {
 
   Widget _tabSwitch(_View view, {required double inset}) => Padding(
     padding: EdgeInsets.fromLTRB(inset, 2, inset, 8),
-    child: Row(
-      spacing: 8,
-      children: [
-        FocusRing(
-          radius: 8,
-          child: ChoiceChip(
-            key: const ValueKey('follow-tab-dramas'),
-            label: Text(
-              view.follows.isEmpty
-                  ? zh('追剧')
-                  : '${zh('追剧')} ${view.follows.length}',
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        spacing: 8,
+        children: [
+          FocusRing(
+            radius: 8,
+            child: ChoiceChip(
+              key: const ValueKey('follow-tab-dramas'),
+              label: Text(
+                view.follows.isEmpty
+                    ? zh('追剧')
+                    : '${zh('追剧')} ${view.follows.length}',
+              ),
+              showCheckmark: false,
+              selected: _tab == _FollowTab.dramas,
+              onSelected: (_) => _switchTab(_FollowTab.dramas),
             ),
-            showCheckmark: false,
-            selected: _tab == _FollowTab.dramas,
-            onSelected: (_) => _switchTab(_FollowTab.dramas),
           ),
+          FocusRing(
+            radius: 8,
+            child: ChoiceChip(
+              key: const ValueKey('follow-tab-tags'),
+              label: Text(
+                view.tags.isEmpty
+                    ? zh('收藏标签')
+                    : '${zh('收藏标签')} ${view.tags.length}',
+              ),
+              showCheckmark: false,
+              selected: _tab == _FollowTab.tags,
+              onSelected: (_) => _switchTab(_FollowTab.tags),
+            ),
+          ),
+          for (final site in _librarySites)
+            FocusRing(
+              radius: 8,
+              child: ChoiceChip(
+                key: ValueKey('follow-tab-library-${site.id}'),
+                label: Text(zh('${site.name} 收藏')),
+                showCheckmark: false,
+                selected:
+                    _tab == _FollowTab.library && _librarySource == site.id,
+                onSelected: (_) => _switchLibraryTab(site.id),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+
+  String _libraryTitle(_View view) {
+    final name = SourceSite.byId(_librarySource).name;
+    return _libraryKind == _LibraryKind.actresses
+        ? '$name 收藏'
+        : '$name 收藏 · ${view.shown.length}';
+  }
+
+  Widget _libraryKindSwitch({required double inset}) => Padding(
+    padding: EdgeInsets.fromLTRB(inset, 0, inset, 8),
+    child: SegmentedButton<_LibraryKind>(
+      segments: [
+        ButtonSegment(
+          value: _LibraryKind.videos,
+          icon: const Icon(Icons.movie_outlined, size: 18),
+          label: Text(zh('影片')),
         ),
-        FocusRing(
-          radius: 8,
-          child: ChoiceChip(
-            key: const ValueKey('follow-tab-tags'),
-            label: Text(
-              view.tags.isEmpty
-                  ? zh('收藏标签')
-                  : '${zh('收藏标签')} ${view.tags.length}',
-            ),
-            showCheckmark: false,
-            selected: _tab == _FollowTab.tags,
-            onSelected: (_) => _switchTab(_FollowTab.tags),
-          ),
+        ButtonSegment(
+          value: _LibraryKind.actresses,
+          icon: const Icon(Icons.person_outline_rounded, size: 18),
+          label: Text(zh('女優')),
         ),
       ],
+      selected: {_libraryKind},
+      showSelectedIcon: false,
+      onSelectionChanged: (selection) =>
+          _switchLibraryKind(selection.first),
     ),
   );
 
@@ -650,10 +810,12 @@ class _FollowPageState extends State<FollowPage> {
                       key: const ValueKey(false),
                       title: _tab == _FollowTab.dramas
                           ? '我的追剧 · ${view.shown.length}'
+                          : _tab == _FollowTab.library
+                          ? _libraryTitle(view)
                           : '追剧',
                       actions: [
                         ?_syncButton(),
-                        _editButtonFor(view, icon: false),
+                        if (!_inActresses) _editButtonFor(view, icon: false),
                       ],
                     )
                   : PageHeader(
@@ -666,11 +828,15 @@ class _FollowPageState extends State<FollowPage> {
                     ),
             ),
             _tabSwitch(view, inset: 16),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: _search(),
-            ),
-            if (_tab == _FollowTab.dramas)
+            if (_tab == _FollowTab.library) _libraryKindSwitch(inset: 16),
+            if (!_inActresses)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: _search(),
+              ),
+            if (_tab == _FollowTab.dramas ||
+                (_tab == _FollowTab.library &&
+                    _libraryKind == _LibraryKind.videos))
               _filterChips(inset: 16, scroll: true),
             ?_sources(view, inset: 16, scroll: true),
           ],
@@ -710,19 +876,22 @@ class _FollowPageState extends State<FollowPage> {
                                 child: _title(
                                   _tab == _FollowTab.dramas
                                       ? '我的追剧 · ${view.shown.length}'
+                                      : _tab == _FollowTab.library
+                                      ? _libraryTitle(view)
                                       : '追剧',
                                   28,
                                 ),
                               ),
-                              SizedBox(
-                                width: (constraints.maxWidth - 400).clamp(
-                                  160.0,
-                                  280.0,
+                              if (!_inActresses)
+                                SizedBox(
+                                  width: (constraints.maxWidth - 400).clamp(
+                                    160.0,
+                                    280.0,
+                                  ),
+                                  child: _search(),
                                 ),
-                                child: _search(),
-                              ),
                               ?_syncButton(),
-                              _editButtonFor(view),
+                              if (!_inActresses) _editButtonFor(view),
                             ],
                           ),
                         )
@@ -749,7 +918,11 @@ class _FollowPageState extends State<FollowPage> {
             ),
           ),
           _tabSwitch(view, inset: 24),
-          if (_tab == _FollowTab.dramas) _filterChips(inset: 24),
+          if (_tab == _FollowTab.library) _libraryKindSwitch(inset: 24),
+          if (_tab == _FollowTab.dramas ||
+              (_tab == _FollowTab.library &&
+                  _libraryKind == _LibraryKind.videos))
+            _filterChips(inset: 24),
           ?_sources(view, inset: 24),
         ],
       ),
@@ -780,6 +953,8 @@ class _FollowPageState extends State<FollowPage> {
           top: 14,
           header: [
             _tabSwitch(view, inset: televisionInset),
+            if (_tab == _FollowTab.library)
+              _libraryKindSwitch(inset: televisionInset),
             if (view.follows.isNotEmpty ||
                 view.tags.isNotEmpty ||
                 view.selection != null)
@@ -798,17 +973,18 @@ class _FollowPageState extends State<FollowPage> {
                       spacing: 12,
                       children: view.selection == null
                           ? [
-                              SizedBox(
-                                width: 260,
-                                child: _search(
-                                  focusNode: _isEmptyShown(view)
-                                      ? widget.entryFocus
-                                      : null,
+                              if (!_inActresses)
+                                SizedBox(
+                                  width: 260,
+                                  child: _search(
+                                    focusNode: _isEmptyShown(view)
+                                        ? widget.entryFocus
+                                        : null,
+                                  ),
                                 ),
-                              ),
                               const Spacer(),
                               ?_syncButton(),
-                              _editButtonFor(view),
+                              if (!_inActresses) _editButtonFor(view),
                             ]
                           : [
                               Expanded(
@@ -823,7 +999,9 @@ class _FollowPageState extends State<FollowPage> {
                   ),
                 ),
               ),
-            if (_tab == _FollowTab.dramas)
+            if (_tab == _FollowTab.dramas ||
+                (_tab == _FollowTab.library &&
+                    _libraryKind == _LibraryKind.videos))
               _filterChips(inset: televisionInset),
             ?_sources(view, inset: televisionInset),
           ],
@@ -957,6 +1135,15 @@ class _FollowPageState extends State<FollowPage> {
     double top = 0,
     required List<Widget> header,
   }) {
+    if (_inActresses) {
+      return _actressContent(
+        context,
+        view,
+        inset: inset,
+        top: top,
+        header: header,
+      );
+    }
     if (_tab == _FollowTab.tags) {
       return CustomScrollView(
         slivers: [
@@ -1046,15 +1233,23 @@ class _FollowPageState extends State<FollowPage> {
                 child: FadeSwitcher(
                   scale: true,
                   child: StatusView(
-                    key: ValueKey(view.follows.isEmpty),
-                    title: view.follows.isEmpty ? '还没有追剧' : '没有匹配的追剧',
-                    message: view.follows.isEmpty
+                    key: ValueKey(
+                      (view.follows.isEmpty, _tab == _FollowTab.library),
+                    ),
+                    title: _tab == _FollowTab.library
+                        ? '还没有同步的收藏'
+                        : view.follows.isEmpty
+                        ? '还没有追剧'
+                        : '没有匹配的追剧',
+                    message: _tab == _FollowTab.library
+                        ? '点上方「同步收藏」把站源收藏同步到追剧，或先到「我的 › 模組」登入该站源。'
+                        : view.follows.isEmpty
                         ? missingSourceHint(
                             widget.store.missingSourceRecords().follows,
                             '部追剧',
                           )
                         : null,
-                    icon: view.follows.isEmpty
+                    icon: _tab == _FollowTab.library || view.follows.isEmpty
                         ? Icons.bookmark_border_rounded
                         : Icons.search_off_rounded,
                   ),
@@ -1146,6 +1341,149 @@ class _FollowPageState extends State<FollowPage> {
           ],
         );
       },
+    );
+  }
+
+  Widget _actressContent(
+    BuildContext context,
+    _View view, {
+    required double inset,
+    double top = 0,
+    required List<Widget> header,
+  }) {
+    final source = _librarySource;
+    final items = _actressCache[source];
+    final error = _actressErrors[source];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth - inset * 2;
+        const gap = 12.0;
+        final columns = ((width + gap) / (104 + gap)).floor().clamp(3, 10);
+        final tile = (width - gap * (columns - 1)) / columns;
+        final scaler = MediaQuery.textScalerOf(context);
+        final extent =
+            (tile +
+                    8 +
+                    scaler.scale(14) * 1.3 +
+                    2 +
+                    scaler.scale(12) * 1.3)
+                .ceilToDouble();
+        return CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.only(top: top),
+              sliver: SliverList.list(children: header),
+            ),
+            if (items == null && error == null)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: StatusView.loading(title: '正在加载女優列表'),
+              )
+            else if (error != null)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: StatusView(
+                  title: '女優列表載入失敗',
+                  message: error,
+                  icon: Icons.cloud_off_rounded,
+                  action: '重試',
+                  onAction: () => _retryActresses(source),
+                ),
+              )
+            else if (items!.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: StatusView(
+                  title: '還沒有收藏的女優',
+                  message: '在站源網站收藏女優後，回到這裡即可看到。',
+                  icon: Icons.person_outline_rounded,
+                ),
+              )
+            else ...[
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(inset, 12, inset, 0),
+                sliver: SliverGrid.builder(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    crossAxisSpacing: gap,
+                    mainAxisSpacing: 16,
+                    mainAxisExtent: extent,
+                  ),
+                  itemCount: items!.length,
+                  itemBuilder: (context, index) => _actressCell(
+                    context,
+                    items[index],
+                    tile,
+                    focusNode: index == 0 ? widget.entryFocus : null,
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.only(
+                  bottom: AppScope.of(context).television ? 27 : 32,
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _actressCell(
+    BuildContext context,
+    Drama drama,
+    double width, {
+    FocusNode? focusNode,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    final remark = drama.badge.isNotEmpty ? drama.badge : drama.description;
+    return FocusRing(
+      radius: 12,
+      child: InkWell(
+        focusNode: focusNode,
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _open(drama),
+        child: Column(
+          children: [
+            ClipOval(
+              child: SizedBox(
+                width: width,
+                height: width,
+                child: DramaCover(
+                  drama: drama,
+                  radius: width / 2,
+                  details: false,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              drama.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              zh(remark),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.3,
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
