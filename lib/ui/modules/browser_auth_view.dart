@@ -76,6 +76,11 @@ class _BrowserAuthViewState extends State<BrowserAuthView> {
 
   bool get _isSupjav => widget.source == 'supjav-cookie';
 
+  /// 帳號登入來源：manifest 申報咗 authUrl（例如 MissAV）。呢類來源
+  /// 要用戶喺頁面登入帳號，cookie 必須等登入完成後先擷取。
+  bool get _isAccountLogin =>
+      SourceSite.byId(widget.source).authUrl.isNotEmpty;
+
   /// 登入/驗證頁地址：manifest authUrl 優先；supjav-cookie 未申報
   /// 時沿用舊寫死地址（行為不變）。
   String get _authUrl {
@@ -116,7 +121,13 @@ class _BrowserAuthViewState extends State<BrowserAuthView> {
 
   Future<void> _capture({required bool auto}) async {
     final controller = _controller;
-    if (controller == null || _busy || _saved) return;
+    if (controller == null || _busy) return;
+    // 帳號登入來源停用自動保存：cf_clearance 會喺用戶登入之前出現，
+    // 自動保存會存低冇 session 嘅 cookie；必須等用戶登入後手動保存。
+    if (auto && _isAccountLogin) return;
+    // _saved 只擋自動保存；帳號登入來源手動保存可重複擷取更新 cookie。
+    // supjav-cookie 維持原有 guard，行為不變。
+    if (_saved && (auto || !_isAccountLogin)) return;
     setState(() => _busy = true);
     try {
       final cookies = await CookieManager.instance().getCookies(
