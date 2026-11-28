@@ -1000,10 +1000,20 @@ class _DetailPageState extends State<DetailPage> {
               const Spacer(),
               Padding(
                 padding: const EdgeInsets.only(top: 12),
-                child: FollowPill(
-                  store: widget.store,
-                  drama: details.drama,
-                  height: m.follow,
+                child: Row(
+                  spacing: 8,
+                  children: [
+                    FollowPill(
+                      store: widget.store,
+                      drama: details.drama,
+                      height: m.follow,
+                    ),
+                    LibrarySavePill(
+                      store: widget.store,
+                      drama: details.drama,
+                      height: m.follow,
+                    ),
+                  ],
                 ),
               ),
             ],

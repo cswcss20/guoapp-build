@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../core_bridge.dart';
 import '../../follow_list.dart';
+import '../../library_login.dart';
 import '../../library_sync.dart';
 import '../../local_store.dart';
 import '../../models.dart';
@@ -461,15 +462,22 @@ class _FollowPageState extends State<FollowPage> {
           ? const <SourceSite>[]
           : followedSources(follows);
       final source = sources.any((site) => site.id == _source) ? _source : '';
-      final shown = [
-        for (final drama in follows)
-          if ((inLibrary
-                  ? drama.source == _librarySource
-                  : source.isEmpty || drama.source == source) &&
-              matchesFollowTitle(drama, _query.text) &&
-              _matches(drama))
-            drama,
-      ];
+      // library tab「影片」顯示站方帳號收藏清單（site list，pull-only
+      // 同步拉入），與本地追劇完全分開；主 tab 照舊顯示本地追劇。
+      final shown = inLibrary
+          ? [
+              for (final drama in widget.store.librarySiteItems(
+                _librarySource,
+              ))
+                if (matchesFollowTitle(drama, _query.text)) drama,
+            ]
+          : [
+              for (final drama in follows)
+                if ((source.isEmpty || drama.source == source) &&
+                    matchesFollowTitle(drama, _query.text) &&
+                    _matches(drama))
+                  drama,
+            ];
       final shownTags = [
         for (final item in tags)
           if ((source.isEmpty || item.source == source) &&
@@ -515,11 +523,10 @@ class _FollowPageState extends State<FollowPage> {
               if (_matchesTag(item, query)) item.tag,
           }.toList()
         : {
-            for (final drama in widget.store.favorites)
-              if ((_tab != _FollowTab.library ||
-                      drama.source == _librarySource) &&
-                  matchesFollowTitle(drama, query))
-                drama.title,
+            for (final drama in _tab == _FollowTab.library
+                ? widget.store.librarySiteItems(_librarySource)
+                : widget.store.favorites)
+              if (matchesFollowTitle(drama, query)) drama.title,
           }.toList(),
   );
 
@@ -551,7 +558,8 @@ class _FollowPageState extends State<FollowPage> {
     focusNode: _editButton,
   );
 
-  /// 有站源申報 library 能力時顯示手動同步掣（站方收藏 ↔ 追劇）。
+  /// 有站源申報 library 能力時顯示手動同步掣（拉取站方帳號收藏入
+  /// site list；追劇永遠唔推送去帳號）。
   Widget? _syncButton() {
     if (!SourceSite.values.any((site) => site.library)) return null;
     return _textButton(
@@ -567,9 +575,6 @@ class _FollowPageState extends State<FollowPage> {
     final repository = AppScope.of(context).repository;
     var added = 0;
     var removed = 0;
-    var pushed = 0;
-    var pushFailed = 0;
-    var writeUnsupported = false;
     String? failure;
     try {
       for (final site in SourceSite.values.where((site) => site.library)) {
@@ -577,9 +582,6 @@ class _FollowPageState extends State<FollowPage> {
         if (result.ok) {
           added += result.added;
           removed += result.removed;
-          pushed += result.pushed;
-          pushFailed += result.pushFailed;
-          writeUnsupported = writeUnsupported || result.writeUnsupported;
         } else {
           failure ??= '${site.name}：${result.error}';
         }
@@ -593,9 +595,7 @@ class _FollowPageState extends State<FollowPage> {
     if (!mounted) return;
     final message = failure != null
         ? '同步失败：$failure'
-        : '同步完成：新增 $added、移除 $removed、推送 $pushed'
-              '${pushFailed > 0 ? '、推送失敗 $pushFailed（下次再試）' : ''}'
-              '${writeUnsupported ? '（站源未支援寫入，本地收藏已保留）' : ''}';
+        : '同步完成：新增 $added、移除 $removed';
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(zh(message))));
@@ -815,7 +815,8 @@ class _FollowPageState extends State<FollowPage> {
                           : '追剧',
                       actions: [
                         ?_syncButton(),
-                        if (!_inActresses) _editButtonFor(view, icon: false),
+                        if (_tab != _FollowTab.library)
+                          _editButtonFor(view, icon: false),
                       ],
                     )
                   : PageHeader(
@@ -834,9 +835,7 @@ class _FollowPageState extends State<FollowPage> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: _search(),
               ),
-            if (_tab == _FollowTab.dramas ||
-                (_tab == _FollowTab.library &&
-                    _libraryKind == _LibraryKind.videos))
+            if (_tab == _FollowTab.dramas)
               _filterChips(inset: 16, scroll: true),
             ?_sources(view, inset: 16, scroll: true),
           ],
@@ -891,7 +890,7 @@ class _FollowPageState extends State<FollowPage> {
                                   child: _search(),
                                 ),
                               ?_syncButton(),
-                              if (!_inActresses) _editButtonFor(view),
+                              if (_tab != _FollowTab.library) _editButtonFor(view),
                             ],
                           ),
                         )
@@ -919,9 +918,7 @@ class _FollowPageState extends State<FollowPage> {
           ),
           _tabSwitch(view, inset: 24),
           if (_tab == _FollowTab.library) _libraryKindSwitch(inset: 24),
-          if (_tab == _FollowTab.dramas ||
-              (_tab == _FollowTab.library &&
-                  _libraryKind == _LibraryKind.videos))
+          if (_tab == _FollowTab.dramas)
             _filterChips(inset: 24),
           ?_sources(view, inset: 24),
         ],
@@ -984,7 +981,7 @@ class _FollowPageState extends State<FollowPage> {
                                 ),
                               const Spacer(),
                               ?_syncButton(),
-                              if (!_inActresses) _editButtonFor(view),
+                              if (_tab != _FollowTab.library) _editButtonFor(view),
                             ]
                           : [
                               Expanded(
@@ -999,9 +996,7 @@ class _FollowPageState extends State<FollowPage> {
                   ),
                 ),
               ),
-            if (_tab == _FollowTab.dramas ||
-                (_tab == _FollowTab.library &&
-                    _libraryKind == _LibraryKind.videos))
+            if (_tab == _FollowTab.dramas)
               _filterChips(inset: televisionInset),
             ?_sources(view, inset: televisionInset),
           ],
@@ -1232,27 +1227,7 @@ class _FollowPageState extends State<FollowPage> {
                 hasScrollBody: false,
                 child: FadeSwitcher(
                   scale: true,
-                  child: StatusView(
-                    key: ValueKey(
-                      (view.follows.isEmpty, _tab == _FollowTab.library),
-                    ),
-                    title: _tab == _FollowTab.library
-                        ? '还没有同步的收藏'
-                        : view.follows.isEmpty
-                        ? '还没有追剧'
-                        : '没有匹配的追剧',
-                    message: _tab == _FollowTab.library
-                        ? '点上方「同步收藏」把站源收藏同步到追剧，或先到「我的 › 模組」登入该站源。'
-                        : view.follows.isEmpty
-                        ? missingSourceHint(
-                            widget.store.missingSourceRecords().follows,
-                            '部追剧',
-                          )
-                        : null,
-                    icon: _tab == _FollowTab.library || view.follows.isEmpty
-                        ? Icons.bookmark_border_rounded
-                        : Icons.search_off_rounded,
-                  ),
+                  child: _shownEmptyView(context, view),
                 ),
               )
             else ...[
@@ -1341,6 +1316,48 @@ class _FollowPageState extends State<FollowPage> {
           ],
         );
       },
+    );
+  }
+
+  /// 格列表空狀態：主 tab 跟原本一樣；library tab「影片」按登入
+  /// 狀態分提示（未登入→去模組頁登入；已登入→帳號冇收藏）。
+  Widget _shownEmptyView(BuildContext context, _View view) {
+    if (_tab == _FollowTab.library) {
+      if (_query.text.trim().isNotEmpty) {
+        return const StatusView(
+          key: ValueKey(('library-empty', 'query')),
+          title: '没有匹配的收藏',
+          icon: Icons.search_off_rounded,
+        );
+      }
+      final name = SourceSite.byId(_librarySource).name;
+      return FutureBuilder<bool>(
+        future: LibraryLogin.loggedIn(
+          AppScope.of(context).repository,
+          _librarySource,
+        ),
+        builder: (context, snapshot) => StatusView(
+          key: ValueKey(('library-empty', snapshot.data)),
+          title: snapshot.data == true ? '帳號還沒有收藏' : '還沒有同步的收藏',
+          message: snapshot.data == true
+              ? '在詳情頁撳「收藏」加入帳號收藏，或在站源網站收藏後點上方「同步收藏」。'
+              : '如未登入，請先到「我的 › 模組 › $name」登入，再点上方「同步收藏」。',
+          icon: Icons.bookmark_border_rounded,
+        ),
+      );
+    }
+    return StatusView(
+      key: ValueKey(view.follows.isEmpty),
+      title: view.follows.isEmpty ? '还没有追剧' : '没有匹配的追剧',
+      message: view.follows.isEmpty
+          ? missingSourceHint(
+              widget.store.missingSourceRecords().follows,
+              '部追剧',
+            )
+          : null,
+      icon: view.follows.isEmpty
+          ? Icons.bookmark_border_rounded
+          : Icons.search_off_rounded,
     );
   }
 

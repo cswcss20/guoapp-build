@@ -365,6 +365,11 @@ class _PlayerPageState extends State<PlayerPage> with WidgetsBindingObserver {
                 radius: 10,
                 onToggled: _focus.requestFocus,
               ),
+              LibrarySavePill(
+                store: widget.store,
+                drama: _drama,
+                radius: 10,
+              ),
               Semantics(
                 label: '下载选集',
                 button: true,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../core_bridge.dart';
+import '../../library_login.dart';
 import '../../models.dart';
 import '../../webview_bridge.dart';
 import '../app_scope.dart';
@@ -168,6 +169,7 @@ class _BrowserAuthViewState extends State<BrowserAuthView> {
         'cookie': cookieHeader,
         'ua': ua,
       });
+      LibraryLogin.invalidate(widget.source);
       // 同时登记 WebView 桥接：之后该域名的主机请求改走真浏览器抓页，
       // 直连被 Cloudflare 挡时也能拿到页面。登记失败不影响上面的保存。
       // 帐号登录来源（authUrl）不登记：它们直连本身可用（住宅 IP），
@@ -209,6 +211,7 @@ class _BrowserAuthViewState extends State<BrowserAuthView> {
     setState(() => _busy = true);
     try {
       await _repository.sourceAccount(widget.source, 'clearCookies', {});
+      LibraryLogin.invalidate(widget.source);
       await CookieManager.instance().deleteCookies(url: WebUri(_authUrl));
       _poll?.cancel();
       if (mounted) {

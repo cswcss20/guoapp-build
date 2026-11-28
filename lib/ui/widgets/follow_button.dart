@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../core_bridge.dart';
+import '../../library_login.dart';
 import '../../local_store.dart';
 import '../../models.dart';
 import '../../zh_script.dart';
+import '../app_scope.dart';
 import '../theme/motion.dart';
 import 'focus_ring.dart';
 import 'motion/motion_widgets.dart';
@@ -120,6 +123,136 @@ class FollowPill extends StatelessWidget {
       );
     },
   );
+}
+
+/// 詳情頁「收藏」掣：同追劇（純本地）分開，撳咗先即時 write-through
+/// 同步去站方帳號（libraryWrite）。只喺來源有 library 能力且已登入
+/// （sourceAccount status，經 LibraryLogin cache）先出現；狀態跟
+/// LocalStore 的 site list（帳號收藏清單），寫入成功先更新。
+class LibrarySavePill extends StatefulWidget {
+  const LibrarySavePill({
+    super.key,
+    required this.store,
+    required this.drama,
+    this.height = 40,
+    this.radius,
+  });
+  final LocalStore store;
+  final Drama drama;
+  final double height;
+  final double? radius;
+
+  @override
+  State<LibrarySavePill> createState() => _LibrarySavePillState();
+}
+
+class _LibrarySavePillState extends State<LibrarySavePill> {
+  var _busy = false;
+
+  Future<void> _toggle() async {
+    if (_busy) return;
+    final store = widget.store;
+    final drama = widget.drama;
+    final saved = store.inLibrarySite(drama.source, drama.id);
+    final repository = AppScope.of(context).repository;
+    setState(() => _busy = true);
+    try {
+      await repository.libraryWrite(drama.source, drama, add: !saved);
+      await store.setLibrarySiteItem(
+        drama.source,
+        drama,
+        present: !saved,
+        epoch: store.profileEpoch,
+      );
+    } catch (failure) {
+      if (failure is AppFailure && failure.code == 'source_login') {
+        LibraryLogin.invalidate(drama.source);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(zh('收藏同步失敗：$failure'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final drama = widget.drama;
+    if (!SourceSite.byId(drama.source).library) {
+      return const SizedBox.shrink();
+    }
+    return FutureBuilder<bool>(
+      future: LibraryLogin.loggedIn(
+        AppScope.of(context).repository,
+        drama.source,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.data != true) return const SizedBox.shrink();
+        return ListenableBuilder(
+          listenable: widget.store,
+          builder: (context, _) {
+            final saved = widget.store.inLibrarySite(drama.source, drama.id);
+            final height = widget.height;
+            final corner = widget.radius ?? height / 2;
+            return FocusRing(
+              radius: corner,
+              child: FilledButton.tonalIcon(
+                key: const ValueKey('library-save-toggle'),
+                onPressed: _busy ? null : _toggle,
+                style: FilledButton.styleFrom(
+                  minimumSize: Size(0, height),
+                  padding: EdgeInsets.fromLTRB(
+                    height / 4,
+                    0,
+                    height * 0.35,
+                    0,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(corner),
+                  ),
+                  iconSize: height * 0.45,
+                  textStyle: TextStyle(
+                    fontSize: height >= 44 ? 15 : 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                icon: ToggleIconSwitcher(
+                  child: Icon(
+                    saved
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    key: ValueKey(saved),
+                  ),
+                ),
+                label: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Visibility(
+                      visible: false,
+                      maintainSize: true,
+                      maintainAnimation: true,
+                      maintainState: true,
+                      child: Text(zh('已收藏')),
+                    ),
+                    FadeSwitcher(
+                      duration: Motion.short,
+                      child: Text(
+                        zh(saved ? '已收藏' : '收藏'),
+                        key: ValueKey(saved),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 }
 
 class FollowIcon extends StatelessWidget {

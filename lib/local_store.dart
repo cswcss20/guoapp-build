@@ -81,6 +81,12 @@ class LocalStore extends ChangeNotifier {
   // 用它分辨「本地新加」同「網站已刪」，做雙向 diff。存
   // users/<profile>/librarySync.json。
   Map<String, Set<String>> _librarySynced = {};
+  // 站方帳號收藏清單（source → 站方收藏 Drama 列表，次序跟站方
+  // 拉取次序）：pull-only 同步拉齊後成份替換，詳情頁「收藏」掣
+  // write-through 成功後逐項更新。與本地追劇完全分開，唔入
+  // _favorites。存 users/<profile>/librarySite.json，結構為
+  // {sourceId: [dramaJson, ...]}。
+  Map<String, List<Drama>> _librarySite = {};
   Map<String, Object?> _settings = {};
   Map<String, Object?> _userSettings = {};
   Future<void> _writes = Future<void>.value();
@@ -237,6 +243,7 @@ class LocalStore extends ChangeNotifier {
     _followStates.clear();
     _followChecks = {};
     _librarySynced = {};
+    _librarySite = {};
     _userSettings = {};
     if (_configurationError != null) return;
     final id = _current;
@@ -278,6 +285,20 @@ class LocalStore extends ChangeNotifier {
         };
       } catch (_) {}
     }
+    final siteLists = _map(await _readFile(_userFile(id, 'librarySite')));
+    for (final entry in siteLists.entries) {
+      try {
+        final items = <Drama>[];
+        final seen = <String>{};
+        for (final row in _rows(entry.value)) {
+          try {
+            final drama = Drama.fromJson(row);
+            if (drama.id.isNotEmpty && seen.add(drama.id)) items.add(drama);
+          } catch (_) {}
+        }
+        if (items.isNotEmpty) _librarySite[entry.key] = items;
+      } catch (_) {}
+    }
   }
 
   static List<LocalProfile> _readProfiles(dynamic records) {
@@ -311,6 +332,7 @@ class LocalStore extends ChangeNotifier {
     _followStates.clear();
     _followChecks = {};
     _librarySynced = {};
+    _librarySite = {};
     _userSettings = {};
     _epoch++;
   }
@@ -502,6 +524,84 @@ class LocalStore extends ChangeNotifier {
       for (final entry in next.entries) entry.key: entry.value.toList(),
     });
     _librarySynced = next;
+  });
+
+  /// 指定站源的帳號收藏清單（site list；站源被停用/未允許時回空）。
+  List<Drama> librarySiteItems(String source) => allowsSource(source)
+      ? List.unmodifiable(_librarySite[source] ?? const <Drama>[])
+      : const [];
+
+  /// 指定項目是否在站源帳號收藏清單入面（詳情頁「收藏」掣狀態用；
+  /// 不經 allowsSource 過濾，掣本身只在 library 站源顯示）。
+  bool inLibrarySite(String source, String dramaId) =>
+      _librarySite[source]?.any((drama) => drama.id == dramaId) ?? false;
+
+  /// 成份替換指定站源的帳號收藏清單（pull-only 同步拉齊後呼叫；
+  /// 拉取失敗時唔好呼叫，保留舊清單）。20000 部上限，同追劇一致。
+  Future<void> saveLibrarySite(
+    String source,
+    List<Drama> items, {
+    required int epoch,
+  }) => _queue(() async {
+    if (locked || epoch != _epoch || !allowsSource(source)) return;
+    final seen = <String>{};
+    final kept = <Drama>[];
+    for (final drama in items) {
+      if (drama.source != source || drama.id.isEmpty) continue;
+      if (!seen.add(drama.id)) continue;
+      kept.add(drama);
+      if (kept.length >= 20000) break;
+    }
+    final next = Map.of(_librarySite);
+    if (kept.isEmpty) {
+      next.remove(source);
+    } else {
+      next[source] = kept;
+    }
+    await _write(_userFile(_current, 'librarySite'), {
+      for (final entry in next.entries)
+        entry.key: [for (final drama in entry.value) drama.toJson()],
+    });
+    _librarySite = next;
+    _notify();
+  });
+
+  /// 逐項更新帳號收藏清單（詳情頁「收藏」掣 write-through 成功後
+  /// 呼叫）：present=true 加入（已在清單則以新元數據更新），
+  /// false 移除。
+  Future<void> setLibrarySiteItem(
+    String source,
+    Drama drama, {
+    required bool present,
+    required int epoch,
+  }) => _queue(() async {
+    if (locked || epoch != _epoch || !allowsSource(source)) return;
+    if (drama.source != source || drama.id.isEmpty) return;
+    final items = [...?_librarySite[source]];
+    final index = items.indexWhere((item) => item.id == drama.id);
+    if (present) {
+      if (index >= 0) {
+        items[index] = items[index].merge(drama);
+      } else {
+        if (items.length >= 20000) return;
+        items.add(drama);
+      }
+    } else {
+      if (index < 0) return;
+      items.removeAt(index);
+    }
+    final next = Map.of(_librarySite);
+    if (items.isEmpty) {
+      next.remove(source);
+    } else {
+      next[source] = items;
+    }
+    await _write(_userFile(_current, 'librarySite'), {
+      for (final entry in next.entries)
+        entry.key: [for (final item in entry.value) item.toJson()],
+    });
+    _librarySite = next;
+    _notify();
   });
 
   Future<void> saveFollowChecks(
