@@ -37,6 +37,7 @@ type nativeModuleInfo struct {
 	Capabilities []string `json:"capabilities"`
 	Adult        bool     `json:"adult"`
 	CoverAlign   string   `json:"coverAlign,omitempty"`
+	AuthURL      string   `json:"authUrl,omitempty"`
 	Installed    bool     `json:"installed"`
 	Previous     string   `json:"previous,omitempty"`
 	Token        string   `json:"token,omitempty"`
@@ -45,7 +46,7 @@ type nativeModuleInfo struct {
 
 func moduleInfo(manifest ModuleManifest) nativeModuleInfo {
 	return nativeModuleInfo{ID: manifest.ID, Name: manifest.Name, Version: manifest.Version, Description: manifest.Description,
-		Hosts: manifest.Hosts, Capabilities: manifest.Capabilities, Adult: *manifest.Adult, CoverAlign: manifest.CoverAlign}
+		Hosts: manifest.Hosts, Capabilities: manifest.Capabilities, Adult: *manifest.Adult, CoverAlign: manifest.CoverAlign, AuthURL: manifest.AuthURL}
 }
 
 func (engine *nativeEngine) modules() ([]nativeModuleInfo, error) {

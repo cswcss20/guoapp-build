@@ -15,9 +15,11 @@ type nativeSourceInfo struct {
 	Devices         bool   `json:"devices"`
 	Account         bool   `json:"account"`
 	Metadata        bool   `json:"metadata"`
+	Library         bool   `json:"library"`
 	Adult           bool   `json:"adult"`
 	VIPPrompt       bool   `json:"vipPrompt"`
 	CoverAlign      string `json:"coverAlign,omitempty"`
+	AuthURL         string `json:"authUrl,omitempty"`
 }
 
 func (engine *nativeEngine) sourceList() []nativeSourceInfo {
@@ -33,7 +35,7 @@ func (engine *nativeEngine) sourceList() []nativeSourceInfo {
 			ID: id, Name: descriptor.Name, Description: descriptor.Description,
 			Group: descriptor.Group, GroupName: descriptor.GroupName, EntryName: descriptor.EntryName,
 			Available: nativeSourceAvailable(id), VIPPrompt: !descriptor.SkipVIPPrompt, Adult: descriptor.Adult,
-			CoverAlign: descriptor.CoverAlign,
+			CoverAlign: descriptor.CoverAlign, AuthURL: descriptor.AuthURL,
 		}
 		_, search := providerAs[Searcher](p)
 		_, warningSearch := providerAs[WarningSearcher](p)
@@ -44,6 +46,7 @@ func (engine *nativeEngine) sourceList() []nativeSourceInfo {
 		_, info.Devices = providerAs[DeviceProvider](p)
 		_, info.Account = providerAs[AccountProvider](p)
 		_, info.Metadata = providerAs[MetadataEnricher](p)
+		_, info.Library = providerAs[LibraryProvider](p)
 		list = append(list, info)
 	}
 	return list

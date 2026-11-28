@@ -77,6 +77,10 @@ class LocalStore extends ChangeNotifier {
   final Map<String, Drama> _favorites = {};
   final Map<String, FollowState> _followStates = {};
   Map<String, FollowCheck> _followChecks = {};
+  // 站方收藏同步的已同步 id 集合（source → drama id 集合）：同步引擎
+  // 用它分辨「本地新加」同「網站已刪」，做雙向 diff。存
+  // users/<profile>/librarySync.json。
+  Map<String, Set<String>> _librarySynced = {};
   Map<String, Object?> _settings = {};
   Map<String, Object?> _userSettings = {};
   Future<void> _writes = Future<void>.value();
@@ -232,6 +236,7 @@ class LocalStore extends ChangeNotifier {
     _favorites.clear();
     _followStates.clear();
     _followChecks = {};
+    _librarySynced = {};
     _userSettings = {};
     if (_configurationError != null) return;
     final id = _current;
@@ -262,6 +267,15 @@ class LocalStore extends ChangeNotifier {
     for (final entry in checks.entries) {
       try {
         _followChecks[entry.key] = FollowCheck.fromJson(entry.value);
+      } catch (_) {}
+    }
+    final synced = _map(await _readFile(_userFile(id, 'librarySync')));
+    for (final entry in synced.entries) {
+      try {
+        _librarySynced[entry.key] = {
+          for (final value in entry.value as List)
+            if (value is String && value.isNotEmpty) value,
+        };
       } catch (_) {}
     }
   }
@@ -296,6 +310,7 @@ class LocalStore extends ChangeNotifier {
     _favorites.clear();
     _followStates.clear();
     _followChecks = {};
+    _librarySynced = {};
     _userSettings = {};
     _epoch++;
   }
@@ -420,6 +435,74 @@ class LocalStore extends ChangeNotifier {
   }
 
   Map<String, FollowCheck> get followChecks => Map.of(_followChecks);
+
+  /// 指定站源的已同步收藏 id 集合（同步引擎 diff 用）。
+  Set<String> librarySyncedIds(String source) => {...?_librarySynced[source]};
+
+  /// 指定站源的本地收藏（未經 allowsSource 過濾，同步引擎 diff 用）。
+  List<Drama> favoritesOfSource(String source) =>
+      _favorites.values.where((drama) => drama.source == source).toList();
+
+  /// 將站方收藏合併入本地追劇：addOrUpdate 新增（連 FollowState）或
+  /// 以 Drama.merge 更新元數據；removeIds 移除（只應傳入已同步過的
+  /// id）。20000 部上限：超額的新項目跳過不加（已存在的更新照做）。
+  /// epoch 不符（已切換用戶）時不寫入。
+  Future<void> applyLibraryMerge(
+    String source, {
+    required List<Drama> addOrUpdate,
+    required Set<String> removeIds,
+    required int epoch,
+  }) {
+    return _queue(() async {
+      if (locked || epoch != _epoch || !allowsSource(source)) return;
+      final entries = Map.of(_favorites);
+      final states = Map.of(_followStates);
+      var changed = false;
+      for (final drama in addOrUpdate) {
+        if (drama.source != source || drama.id.isEmpty) continue;
+        final existing = entries[drama.id];
+        if (existing == null) {
+          if (entries.length >= 20000) continue;
+          entries[drama.id] = drama;
+          states[drama.id] = FollowState.initial(drama);
+          changed = true;
+        } else {
+          entries[drama.id] = existing.merge(drama);
+          changed = true;
+        }
+      }
+      for (final id in removeIds) {
+        if (entries[id]?.source == source) {
+          entries.remove(id);
+          states.remove(id);
+          changed = true;
+        }
+      }
+      if (!changed) return;
+      await _saveStates(states);
+      await _saveFavorites(entries);
+      _notify();
+    });
+  }
+
+  /// 儲存指定站源的已同步 id 集合。
+  Future<void> saveLibrarySynced(
+    String source,
+    Set<String> ids, {
+    required int epoch,
+  }) => _queue(() async {
+    if (locked || epoch != _epoch) return;
+    final next = Map.of(_librarySynced);
+    if (ids.isEmpty) {
+      next.remove(source);
+    } else {
+      next[source] = {...ids};
+    }
+    await _write(_userFile(_current, 'librarySync'), {
+      for (final entry in next.entries) entry.key: entry.value.toList(),
+    });
+    _librarySynced = next;
+  });
 
   Future<void> saveFollowChecks(
     Map<String, FollowCheck> checks, {

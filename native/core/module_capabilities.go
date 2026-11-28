@@ -116,6 +116,22 @@ func (p *jsProvider) ExtraMetadata(ctx context.Context, drama LibraryDrama, sour
 	return drama, ctx.Err()
 }
 
+func (p *jsProvider) LibraryItems(ctx context.Context, kind string, page int) ([]Drama, bool, error) {
+	var result jsDramaPage
+	if err := p.call(ctx, "libraryItems", &result, kind, page); err != nil {
+		return nil, false, err
+	}
+	if result.Warning != "" {
+		return result.Items, result.HasMore, errors.New(result.Warning)
+	}
+	return result.Items, result.HasMore, nil
+}
+
+func (p *jsProvider) LibraryWrite(ctx context.Context, kind string, drama LibraryDrama, add bool) error {
+	var ignored any
+	return p.call(ctx, "libraryWrite", &ignored, kind, drama, add)
+}
+
 func (p *jsProvider) CatalogState() json.RawMessage {
 	var state json.RawMessage
 	if p.quickCall("catalogState", &state) != nil || string(state) == "null" {

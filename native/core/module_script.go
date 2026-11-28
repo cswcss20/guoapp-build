@@ -357,6 +357,9 @@ func moduleError(ctx context.Context, err error) error {
 			if login := thrown.Get("loginRequired"); login != nil && login.ToBoolean() {
 				return SourceLoginError(message.String())
 			}
+			if unsupported := thrown.Get("notImplemented"); unsupported != nil && unsupported.ToBoolean() {
+				return LibraryWriteUnsupportedError(message.String())
+			}
 			return errors.New(message.String())
 		}
 	}

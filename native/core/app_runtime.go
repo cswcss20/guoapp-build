@@ -62,6 +62,9 @@ type LibraryDrama struct {
 	Tags           []string `json:"tags,omitempty"`
 	ReleaseStatus  string   `json:"releaseStatus,omitempty"`
 	Badge          string   `json:"badge,omitempty"`
+	// OpenAsSearch 由模組申報：前端撳入此項目時改開搜尋頁（標題為
+	// 搜尋詞），不入詳情頁。用於女優列表等「撳入即搜尋」項目。
+	OpenAsSearch bool `json:"openAsSearch,omitempty"`
 	// Peers 在跨源聚合搜索里带上其它站源的同一部剧，供界面一键切换播放源。
 	Peers []LibraryDrama `json:"peers,omitempty"`
 }
@@ -97,6 +100,7 @@ type nativeInput struct {
 	Version         string                  `json:"version"`
 	Since           string                  `json:"since"`
 	Account         json.RawMessage         `json:"account"`
+	Kind            string                  `json:"kind"`
 	Device          string                  `json:"device"`
 	File            string                  `json:"file"`
 	URL             string                  `json:"url"`
@@ -228,7 +232,8 @@ func NativeNormalize(drama Drama) LibraryDrama {
 		Description: FirstNonEmpty(drama.Desc, drama.Intro), Cover: cover, Episodes: episodes,
 		Category: nativeDramaCategory(drama), VIP: drama.VIP,
 		Heat: drama.Heat, Views: drama.Views, OnlineDate: ProviderReleaseDate(drama.OnlineDate), Score: NativeDramaScore(drama.Score),
-		Tags: append([]string(nil), drama.Tags...), ReleaseStatus: drama.ReleaseStatus, Badge: drama.Badge}
+		Tags: append([]string(nil), drama.Tags...), ReleaseStatus: drama.ReleaseStatus, Badge: drama.Badge,
+		OpenAsSearch: drama.OpenAsSearch}
 }
 
 func NativeDramaScore(score string) string {
@@ -322,6 +327,9 @@ func NativeRequest(raw string) (result string) {
 		if errors.Is(err, ErrSourceLogin) {
 			envelope["code"] = "source_login"
 		}
+		if errors.Is(err, ErrLibraryWriteUnsupported) {
+			envelope["code"] = "library_write_unsupported"
+		}
 		var backoff *RequestBackoff
 		if errors.As(err, &backoff) {
 			envelope["code"] = "source_blocked"
@@ -413,6 +421,10 @@ func nativeDispatch(input nativeInput) (any, error) {
 		return engine.sourceDevices(ctx, nativeActionSource(input), input.Command == "register")
 	case "soraniAccount", "sourceAccount":
 		return engine.sourceAccount(ctx, nativeActionSource(input), input.Command, input.Account)
+	case "libraryItems":
+		return engine.libraryItems(ctx, input)
+	case "libraryWrite":
+		return engine.libraryWrite(ctx, input)
 	case "webViewBridge":
 		return engine.setWebViewBridge(input.Index, input.URL, input.Source, input.Token, input.Device), nil
 	case "sourceChallengeUrl":

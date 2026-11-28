@@ -22,9 +22,11 @@ class SourceSite {
     this.devices = false,
     this.account = false,
     this.metadata = false,
+    this.library = false,
     this.adult = false,
     this.vipPrompt = true,
     this.coverAlign = '',
+    this.authUrl = '',
   });
   factory SourceSite.fromJson(Map<String, dynamic> json) => SourceSite(
     json['id'] as String? ?? '',
@@ -41,9 +43,11 @@ class SourceSite {
     devices: json['devices'] == true,
     account: json['account'] == true,
     metadata: json['metadata'] == true,
+    library: json['library'] == true,
     adult: json['adult'] == true,
     vipPrompt: json['vipPrompt'] != false,
     coverAlign: json['coverAlign'] as String? ?? '',
+    authUrl: json['authUrl'] as String? ?? '',
   );
   final String id;
   final String name;
@@ -59,11 +63,17 @@ class SourceSite {
   final bool devices;
   final bool account;
   final bool metadata;
+  // 模組有 library 能力：可提供站方個人收藏列表畀追劇同步引擎合併，
+  // 並可將本地新增/移除推送回站方。
+  final bool library;
   final bool adult;
   final bool vipPrompt;
   // 模組 manifest 申報的封面裁切方向（'right'/'left'/''），供封面組件決定
   // 橫幅封面在直身卡片的裁切位置；未申報時為空字串。
   final String coverAlign;
+  // 模組 manifest 申報的瀏覽器登入/驗證頁地址；有此欄位且有 account
+  // 能力時，模組頁顯示瀏覽器登入入口。未申報時為空字串。
+  final String authUrl;
   bool get onlineSearch => pagedSearch;
   String get groupId => group.isEmpty ? id : group;
   String get groupName => groupLabel.isEmpty ? name : groupLabel;
@@ -187,6 +197,7 @@ class Drama {
     this.tags = const [],
     this.releaseStatus = '',
     this.badge = '',
+    this.openAsSearch = false,
     this.peers = const [],
   }) : vipStatus = vip;
   final String id;
@@ -206,6 +217,9 @@ class Drama {
   final List<String> tags;
   final String releaseStatus;
   final String badge;
+  // 模組申報的導航標記：撳入此項目時改開搜尋頁（標題為搜尋詞），
+  // 不入詳情頁。用於女優列表等「撳入即搜尋」項目。
+  final bool openAsSearch;
 
   /// 跨源聚合搜索里其它站源的同一部剧，供界面一键切换播放源。
   /// 只存在于搜索会话的快照里，不写进 toJson（不进本机存储）。
@@ -239,6 +253,7 @@ class Drama {
     tags: (json['tags'] as List? ?? const []).whereType<String>().toList(),
     releaseStatus: json['releaseStatus'] as String? ?? '',
     badge: json['badge'] as String? ?? '',
+    openAsSearch: json['openAsSearch'] == true,
     peers: [
       for (final row in json['peers'] as List? ?? const [])
         Drama.fromJson(Map<String, dynamic>.from(row as Map)),
@@ -262,6 +277,7 @@ class Drama {
     'tags': tags,
     'releaseStatus': releaseStatus,
     'badge': badge,
+    if (openAsSearch) 'openAsSearch': true,
   };
 
   Drama merge(Drama fresh) {
@@ -305,6 +321,7 @@ class Drama {
           ? releaseStatus
           : fresh.releaseStatus,
       badge: fresh.badge.isEmpty ? badge : fresh.badge,
+      openAsSearch: fresh.openAsSearch || openAsSearch,
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -7,6 +8,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 import '../../core_bridge.dart';
+import '../../library_sync.dart';
 import '../../local_store.dart';
 import '../../models.dart';
 import '../../source_modules.dart';
@@ -87,6 +89,17 @@ class _ModulesPageState extends State<ModulesPage>
   LocalStore get _store => widget.store;
 
   AppRepository get _repository => AppScope.of(context).repository;
+
+  /// 瀏覽器登入保存成功後即刻同步一次站方收藏入追劇（模組冇 library
+  /// 能力時 LibrarySync 會自行略過）。失敗靜默，追劇頁有手動同步掣。
+  void _syncLibrary(String source) {
+    if (!mounted) return;
+    unawaited(
+      LibrarySync(_repository, _store)
+          .run(source)
+          .catchError((Object _) => const LibrarySyncResult()),
+    );
+  }
 
   bool get _canInstall => _store.profile.admin && !_store.locked && !_busy;
 
@@ -917,9 +930,13 @@ class _InstalledCard extends StatelessWidget {
             module.capabilities.contains('account'))
           EmbyAccountButton(admin: admin, style: _cardButton(colors)),
         if (!television &&
-            module.id == 'supjav-cookie' &&
+            (module.authUrl.isNotEmpty || module.id == 'supjav-cookie') &&
             module.capabilities.contains('account'))
-          BrowserAuthButton(source: module.id, style: _cardButton(colors)),
+          BrowserAuthButton(
+            source: module.id,
+            style: _cardButton(colors),
+            onSaved: () => _syncLibrary(module.id),
+          ),
       ],
       actions: television
           ? const []
@@ -1336,9 +1353,12 @@ class _ModuleMenu extends StatelessWidget {
           SoraniAccountButton(admin: admin),
         if (module.id == 'emby' && module.capabilities.contains('account'))
           EmbyAccountButton(admin: admin),
-        if (module.id == 'supjav-cookie' &&
+        if ((module.authUrl.isNotEmpty || module.id == 'supjav-cookie') &&
             module.capabilities.contains('account'))
-          BrowserAuthButton(source: module.id),
+          BrowserAuthButton(
+            source: module.id,
+            onSaved: () => _syncLibrary(module.id),
+          ),
         if (update != null)
           FocusRing(
             radius: 20,

@@ -35,7 +35,11 @@ type SourceDescriptor struct {
 	BrowserFingerprint bool
 	// CoverAlign 是模組在 manifest 申報的封面裁切方向（"right"/"left"/""），
 	// 供前端決定橫幅 DVD 封面在直身卡片的裁切位置。
-	CoverAlign         string
+	CoverAlign string
+	// AuthURL 是模組在 manifest 申報的瀏覽器登入/驗證頁地址（跟
+	// CoverAlign 同一管線）；前端有此欄位且模組有 account 能力時，
+	// 在模組頁顯示瀏覽器登入入口。未申報時為空字串。
+	AuthURL            string
 	ValidCategory      func(category string) bool
 	Rankings           []RankingBoard
 }
@@ -170,6 +174,27 @@ type DeviceProvider interface {
 
 type AccountProvider interface {
 	Account(ctx context.Context, command string, payload json.RawMessage) (any, error)
+}
+
+// LibraryProvider 是模組申報的站方個人收藏能力（manifest capability
+// "library"）：LibraryItems 分頁回傳站方收藏列表（kind 區分
+// favorites 等收藏種類），供前端同步引擎合併入本地追劇；
+// LibraryWrite 將本地新增/移除推送回站方。寫入未實作時模組應拋
+// 帶 notImplemented 標記的錯誤（見 ErrLibraryWriteUnsupported），
+// 同步引擎會保留本地狀態下次再試，絕不丟失本地收藏。
+type LibraryProvider interface {
+	LibraryItems(ctx context.Context, kind string, page int) ([]Drama, bool, error)
+	LibraryWrite(ctx context.Context, kind string, drama LibraryDrama, add bool) error
+}
+
+var ErrLibraryWriteUnsupported = errors.New("站源未支援寫入收藏")
+
+type LibraryWriteUnsupportedError string
+
+func (err LibraryWriteUnsupportedError) Error() string { return string(err) }
+
+func (err LibraryWriteUnsupportedError) Is(target error) bool {
+	return target == ErrLibraryWriteUnsupported
 }
 
 type Ranker interface {

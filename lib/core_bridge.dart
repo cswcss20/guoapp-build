@@ -257,6 +257,22 @@ abstract class AppRepository {
     String command,
     Map<String, dynamic> payload,
   ) async => throw AppFailure('当前版本不支持站源账号验证');
+  /// 拉取站源模組站方個人收藏列表的一頁（library 能力），供追劇
+  /// 同步引擎逐頁拉齊後與本地收藏做 diff 合併。
+  Future<CatalogPage> libraryItems(
+    String source, {
+    String kind = 'favorites',
+    int page = 1,
+  }) async => throw AppFailure('当前版本不支持收藏同步');
+  /// 將本地收藏的新增/移除推送回站方（library 能力）。模組未實作
+  /// 寫入時拋 code 為 library_write_unsupported 的 AppFailure，
+  /// 同步引擎保留本地狀態下次再試。
+  Future<void> libraryWrite(
+    String source,
+    Drama drama, {
+    String kind = 'favorites',
+    required bool add,
+  }) async => throw AppFailure('当前版本不支持收藏同步');
   Future<SoraniAccount> soraniAccount() async => const SoraniAccount();
   Future<SoraniCaptcha> soraniCaptcha() async =>
       throw AppFailure('当前版本不支持登录青空次元');
@@ -737,6 +753,44 @@ class NativeRepository extends AppRepository {
       'source': source,
       'command': command,
       'account': payload,
+    });
+  }
+
+  @override
+  Future<CatalogPage> libraryItems(
+    String source, {
+    String kind = 'favorites',
+    int page = 1,
+  }) async {
+    final result = await _call({
+      'action': 'libraryItems',
+      'source': source,
+      'kind': kind,
+      'page': page,
+    });
+    return CatalogPage(
+      [
+        for (final row in result['items'] as List? ?? const [])
+          Drama.fromJson(Map<String, dynamic>.from(row as Map)),
+      ],
+      hasMore: result['hasMore'] == true,
+      page: page,
+    );
+  }
+
+  @override
+  Future<void> libraryWrite(
+    String source,
+    Drama drama, {
+    String kind = 'favorites',
+    required bool add,
+  }) async {
+    await _call({
+      'action': 'libraryWrite',
+      'source': source,
+      'kind': kind,
+      'command': add ? 'add' : 'remove',
+      'drama': drama.toJson(),
     });
   }
 

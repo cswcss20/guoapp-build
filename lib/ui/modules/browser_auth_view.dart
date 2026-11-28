@@ -4,30 +4,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../core_bridge.dart';
+import '../../models.dart';
 import '../../webview_bridge.dart';
 import '../app_scope.dart';
 import '../widgets/focus_ring.dart';
 
-/// SupJav 浏览器验证入口。
-/// 用户在此页通过 Cloudflare 验证后，模块自动读取 Cookie 与实际 UA，
-/// 通过通用的 sourceAccount('supjav-cookie', 'setCookies', ...) 写回模块状态。
-const _authUrl = 'https://supjav.com/zh/';
+/// 模組瀏覽器登入/驗證入口。
+/// 用戶在此頁完成站方驗證或登入後，模組自動讀取 Cookie 與實際 UA，
+/// 通過通用的 sourceAccount(source, 'setCookies', ...) 寫回模組狀態。
+/// 登入頁地址優先用模組 manifest 申報的 authUrl；supjav-cookie
+/// 未申報該欄位（舊模組），沿用其寫死地址，行為不變。
+const _supjavAuthUrl = 'https://supjav.com/zh/';
 const _fallbackUA =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
     '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-Future<void> showBrowserAuth(BuildContext context, String source) =>
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => BrowserAuthView(source: source),
-      ),
-    );
+Future<void> showBrowserAuth(
+  BuildContext context,
+  String source, {
+  VoidCallback? onSaved,
+}) => Navigator.of(context).push<void>(
+  MaterialPageRoute<void>(
+    builder: (_) => BrowserAuthView(source: source, onSaved: onSaved),
+  ),
+);
 
 class BrowserAuthButton extends StatelessWidget {
-  const BrowserAuthButton({super.key, required this.source, this.style});
+  const BrowserAuthButton({
+    super.key,
+    required this.source,
+    this.style,
+    this.onSaved,
+  });
 
   final String source;
   final ButtonStyle? style;
+  final VoidCallback? onSaved;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +47,7 @@ class BrowserAuthButton extends StatelessWidget {
       radius: 20,
       child: FilledButton.tonalIcon(
         style: style,
-        onPressed: () => showBrowserAuth(context, source),
+        onPressed: () => showBrowserAuth(context, source, onSaved: onSaved),
         icon: const Icon(Icons.public_rounded),
         label: const Text('浏览器验证'),
       ),
@@ -44,9 +56,10 @@ class BrowserAuthButton extends StatelessWidget {
 }
 
 class BrowserAuthView extends StatefulWidget {
-  const BrowserAuthView({super.key, required this.source});
+  const BrowserAuthView({super.key, required this.source, this.onSaved});
 
   final String source;
+  final VoidCallback? onSaved;
 
   @override
   State<BrowserAuthView> createState() => _BrowserAuthViewState();
@@ -57,10 +70,34 @@ class _BrowserAuthViewState extends State<BrowserAuthView> {
   Timer? _poll;
   bool _busy = false;
   bool _saved = false;
-  String _status = '请在下方页面完成 Cloudflare 验证；通过后会自动保存。'
-      '若页面已正常打开却没有自动保存，可点「保存验证结果」手动保存。';
+  late String _status;
 
   AppRepository get _repository => AppScope.of(context).repository;
+
+  bool get _isSupjav => widget.source == 'supjav-cookie';
+
+  /// 登入/驗證頁地址：manifest authUrl 優先；supjav-cookie 未申報
+  /// 時沿用舊寫死地址（行為不變）。
+  String get _authUrl {
+    final declared = SourceSite.byId(widget.source).authUrl;
+    if (declared.isNotEmpty) return declared;
+    return _isSupjav ? _supjavAuthUrl : '';
+  }
+
+  String get _title => _isSupjav
+      ? 'SupJav 浏览器验证'
+      : '${SourceSite.byId(widget.source).name} 登录验证';
+
+  String get _initialStatus => _isSupjav
+      ? '请在下方页面完成 Cloudflare 验证；通过后会自动保存。'
+            '若页面已正常打开却没有自动保存，可点「保存验证结果」手动保存。'
+      : '请在下方页面登录账号；登录后点「保存验证结果」保存登录状态。';
+
+  @override
+  void initState() {
+    super.initState();
+    _status = _initialStatus;
+  }
 
   @override
   void dispose() {
@@ -146,6 +183,7 @@ class _BrowserAuthViewState extends State<BrowserAuthView> {
               '可以返回模块正常使用了。';
         });
       }
+      widget.onSaved?.call();
     } catch (error) {
       if (!auto) _setStatus('保存失败：$error');
     } finally {
@@ -176,7 +214,7 @@ class _BrowserAuthViewState extends State<BrowserAuthView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SupJav 浏览器验证'),
+        title: Text(_title),
         actions: [
           IconButton(
             onPressed: _busy ? null : () => _capture(auto: false),

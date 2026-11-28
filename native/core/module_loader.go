@@ -42,6 +42,7 @@ var moduleCapabilityTypes = map[string][]reflect.Type{
 	"metadata":        {reflect.TypeFor[MetadataEnricher]()},
 	"catalogState":    {reflect.TypeFor[CatalogStateful]()},
 	"mediaAuth":       {reflect.TypeFor[MediaAuthorizer]()},
+	"library":         {reflect.TypeFor[LibraryProvider]()},
 }
 
 type ModuleRanking struct {
@@ -74,6 +75,7 @@ type ModuleManifest struct {
 	ContinuousFeed     bool     `json:"continuousFeed"`
 	BrowserFingerprint bool     `json:"browserFingerprint"`
 	CoverAlign         string   `json:"coverAlign"`
+	AuthURL            string   `json:"authUrl"`
 
 	Rankings       []ModuleRanking `json:"rankings"`
 	MediaAuthPaths []string        `json:"mediaAuthPaths"`
@@ -192,6 +194,7 @@ func (module *jsModule) descriptor() SourceDescriptor {
 		ContinuousFeed:     module.manifest.ContinuousFeed,
 		BrowserFingerprint: module.manifest.BrowserFingerprint,
 		CoverAlign:         module.manifest.CoverAlign,
+		AuthURL:            module.manifest.AuthURL,
 	}
 }
 

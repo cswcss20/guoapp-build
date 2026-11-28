@@ -250,6 +250,11 @@ func MergeNativeDrama(previous, fresh LibraryDrama) LibraryDrama {
 	if fresh.Badge == "" {
 		fresh.Badge = previous.Badge
 	}
+	// OpenAsSearch 是項目本身的導航性質（例如女優項目）：新資料未帶
+	// 標記時沿用舊值，避免合併後撳入行為變回詳情頁。
+	if !fresh.OpenAsSearch {
+		fresh.OpenAsSearch = previous.OpenAsSearch
+	}
 	return fresh
 }
 

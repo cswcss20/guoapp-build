@@ -19,6 +19,7 @@ import '../widgets/category_tabs.dart';
 import '../widgets/choice_panel.dart';
 import '../widgets/cover_aspect_toggle.dart';
 import '../widgets/drama_grid.dart';
+import '../widgets/drama_open.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/follow_button.dart';
 import '../widgets/motion/motion_widgets.dart';
@@ -114,6 +115,7 @@ class ExplorePageState extends State<ExplorePage> {
   }
 
   void _open(Drama drama, {bool autoplay = false}) {
+    if (openDramaSearchIfMarked(context, widget.store, drama) != null) return;
     final explore = _explore;
     openPage<void>(
       context,

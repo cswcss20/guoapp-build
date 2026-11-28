@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../follow_list.dart';
+import '../../library_sync.dart';
 import '../../local_store.dart';
 import '../../models.dart';
 import '../../source_modules.dart';
@@ -14,6 +15,7 @@ import '../settings/settings_rows.dart';
 import '../shell/app_shell.dart';
 import '../theme/motion.dart';
 import '../widgets/drama_grid.dart';
+import '../widgets/drama_open.dart';
 import '../widgets/drama_tile.dart';
 import '../widgets/focus_ring.dart';
 import '../widgets/motion/motion_widgets.dart';
@@ -57,6 +59,7 @@ class _FollowPageState extends State<FollowPage> {
   var _filter = '';
   var _section = 0;
   Set<String>? _selection;
+  var _syncing = false;
 
   @override
   void dispose() {
@@ -112,6 +115,7 @@ class _FollowPageState extends State<FollowPage> {
   });
 
   void _open(Drama drama) {
+    if (openDramaSearchIfMarked(context, widget.store, drama) != null) return;
     if (widget.store.following(drama.id)?.hasUpdates ?? false) {
       saveSetting(context, () => widget.store.markUpdatesRead(drama.id));
     }
@@ -431,6 +435,56 @@ class _FollowPageState extends State<FollowPage> {
     focusNode: _editButton,
   );
 
+  /// 有站源申報 library 能力時顯示手動同步掣（站方收藏 ↔ 追劇）。
+  Widget? _syncButton() {
+    if (!SourceSite.values.any((site) => site.library)) return null;
+    return _textButton(
+      _syncing ? '同步中' : '同步收藏',
+      _syncing ? null : _runSync,
+      icon: Icons.sync_rounded,
+    );
+  }
+
+  Future<void> _runSync() async {
+    if (_syncing) return;
+    setState(() => _syncing = true);
+    final repository = AppScope.of(context).repository;
+    var added = 0;
+    var removed = 0;
+    var pushed = 0;
+    var pushFailed = 0;
+    var writeUnsupported = false;
+    String? failure;
+    try {
+      for (final site in SourceSite.values.where((site) => site.library)) {
+        final result = await LibrarySync(repository, widget.store).run(site.id);
+        if (result.ok) {
+          added += result.added;
+          removed += result.removed;
+          pushed += result.pushed;
+          pushFailed += result.pushFailed;
+          writeUnsupported = writeUnsupported || result.writeUnsupported;
+        } else {
+          failure ??= '${site.name}：${result.error}';
+        }
+        if (!mounted) return;
+      }
+    } catch (error) {
+      failure ??= '$error';
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+    if (!mounted) return;
+    final message = failure != null
+        ? '同步失败：$failure'
+        : '同步完成：新增 $added、移除 $removed、推送 $pushed'
+              '${pushFailed > 0 ? '、推送失敗 $pushFailed（下次再試）' : ''}'
+              '${writeUnsupported ? '（站源未支援寫入，本地收藏已保留）' : ''}';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(zh(message))));
+  }
+
   Widget _selectAll(_View view) {
     final all = _ids(view);
     final everything = view.selection!.length == all.length;
@@ -597,7 +651,10 @@ class _FollowPageState extends State<FollowPage> {
                       title: _tab == _FollowTab.dramas
                           ? '我的追剧 · ${view.shown.length}'
                           : '追剧',
-                      actions: [_editButtonFor(view, icon: false)],
+                      actions: [
+                        ?_syncButton(),
+                        _editButtonFor(view, icon: false),
+                      ],
                     )
                   : PageHeader(
                       key: const ValueKey(true),
@@ -664,6 +721,7 @@ class _FollowPageState extends State<FollowPage> {
                                 ),
                                 child: _search(),
                               ),
+                              ?_syncButton(),
                               _editButtonFor(view),
                             ],
                           ),
@@ -749,6 +807,7 @@ class _FollowPageState extends State<FollowPage> {
                                 ),
                               ),
                               const Spacer(),
+                              ?_syncButton(),
                               _editButtonFor(view),
                             ]
                           : [

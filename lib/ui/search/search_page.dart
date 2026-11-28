@@ -17,6 +17,7 @@ import '../widgets/category_tabs.dart';
 import '../widgets/choice_panel.dart';
 import '../widgets/cover_aspect_toggle.dart';
 import '../widgets/drama_grid.dart';
+import '../widgets/drama_open.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/follow_button.dart';
 import '../widgets/focus_ring.dart';
@@ -351,14 +352,17 @@ class _SearchPageState extends State<SearchPage> {
     });
   }
 
-  void _open(Drama drama) => openPage<void>(
-    context,
-    (_) => DetailPage(
-      store: widget.store,
-      drama: drama,
-      coverAspect: widget.store.coverCardAspectSearch,
-    ),
-  );
+  void _open(Drama drama) {
+    if (openDramaSearchIfMarked(context, widget.store, drama) != null) return;
+    openPage<void>(
+      context,
+      (_) => DetailPage(
+        store: widget.store,
+        drama: drama,
+        coverAspect: widget.store.coverCardAspectSearch,
+      ),
+    );
+  }
 
   Widget _aspectToggle() => CoverAspectToggle(
     value: widget.store.coverCardAspectSearch,

@@ -8,6 +8,7 @@ class SourceModule {
     this.capabilities = const [],
     this.adult = false,
     this.coverAlign = '',
+    this.authUrl = '',
     this.installed = false,
     this.previous = '',
     this.token = '',
@@ -24,6 +25,7 @@ class SourceModule {
         .toList(),
     adult: json['adult'] == true,
     coverAlign: json['coverAlign'] as String? ?? '',
+    authUrl: json['authUrl'] as String? ?? '',
     installed: json['installed'] == true,
     previous: json['previous'] as String? ?? '',
     token: json['token'] as String? ?? '',
@@ -37,6 +39,7 @@ class SourceModule {
   final List<String> capabilities;
   final bool adult;
   final String coverAlign;
+  final String authUrl;
   final bool installed;
   final String previous;
   final String token;
@@ -108,6 +111,7 @@ const moduleCapabilityNames = {
   'cover': '封面',
   'metadata': '补充信息',
   'catalogState': '目录状态',
+  'library': '收藏同步',
 };
 
 String? missingSourceHint(Map<String, int> counts, String unit) {

@@ -45,7 +45,7 @@ func nativeActionSource(input nativeInput) string {
 
 func nativeAuthorizeInput(input nativeInput) error {
 	switch input.Action {
-	case "recommendations", "cachedRecommendations", "suggestions", "soraniAccount", "sourceAccount":
+	case "recommendations", "cachedRecommendations", "suggestions", "soraniAccount", "sourceAccount", "libraryItems":
 		if !nativeSourceAvailable(nativeActionSource(input)) {
 			return errNativeBuildSource
 		}
@@ -62,7 +62,7 @@ func nativeAuthorizeInput(input nativeInput) error {
 		if input.Command == "play" && !nativeChapterAvailable(input.Drama, input.Chapter) {
 			return errNativeBuildSource
 		}
-	case "cover", "prepareCover", "detail", "seasons", "metadata", "followCheck", "resolve", "preload", "enqueueDownloads", "localPlayback":
+	case "cover", "prepareCover", "detail", "seasons", "metadata", "followCheck", "resolve", "preload", "enqueueDownloads", "localPlayback", "libraryWrite":
 		if !nativeDramaAvailable(input.Drama) {
 			return errNativeBuildSource
 		}

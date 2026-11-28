@@ -52,7 +52,10 @@ type Drama struct {
 	OnlineDate        string             `json:"onlineDate,omitempty"`
 	Tags              []string           `json:"tags,omitempty"`
 	ReleaseStatus     string             `json:"releaseStatus,omitempty"`
-	SortMetadata      *sortMetadataState `json:"sortMetadata,omitempty"`
+	// OpenAsSearch 由模組在目錄項目上申報：前端撳入此項目時改開搜尋頁
+	//（以標題為搜尋詞），不入詳情頁。用於女優列表等「撳入即搜尋」項目。
+	OpenAsSearch bool               `json:"openAsSearch,omitempty"`
+	SortMetadata *sortMetadataState `json:"sortMetadata,omitempty"`
 }
 
 func (d Drama) DisplayTitle() string {

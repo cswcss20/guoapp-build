@@ -15,6 +15,7 @@ import '../player/playback_page.dart';
 import '../shell/app_shell.dart';
 import '../theme/motion.dart';
 import '../widgets/cover_backdrop.dart';
+import '../widgets/drama_open.dart';
 import '../widgets/cover_image.dart';
 import '../widgets/focus_ring.dart';
 import '../widgets/status_view.dart';
@@ -106,10 +107,15 @@ class _RecommendPageState extends State<RecommendPage> {
     _dropHandle();
     if (mounted) setState(() {});
     try {
-      await openPage<void>(
-        context,
-        (_) => DetailPage(store: widget.store, drama: drama),
-      );
+      final diverted = openDramaSearchIfMarked(context, widget.store, drama);
+      if (diverted != null) {
+        await diverted;
+      } else {
+        await openPage<void>(
+          context,
+          (_) => DetailPage(store: widget.store, drama: drama),
+        );
+      }
     } finally {
       _detailOpen = false;
       // 返回时按详情页看过 / 播放保存的进度重建这一部的播放器。
