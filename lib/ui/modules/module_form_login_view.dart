@@ -194,7 +194,7 @@ class _ModuleFormLoginDialogState extends State<_ModuleFormLoginDialog> {
           children: [
             for (final (index, field) in _fields.indexed)
               FormTextField(
-                controller: _controllers[field.id],
+                controller: _controllers[field.id]!,
                 autofocus: index == 0,
                 obscure: field.isSecret,
                 maxLength: 256,
