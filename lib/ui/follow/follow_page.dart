@@ -1437,7 +1437,11 @@ class _FollowPageState extends State<FollowPage> {
     FocusNode? focusNode,
   }) {
     final colors = Theme.of(context).colorScheme;
-    final remark = drama.badge.isNotEmpty ? drama.badge : drama.description;
+    final remark = drama.remark.isNotEmpty
+        ? drama.remark
+        : drama.badge.isNotEmpty
+        ? drama.badge
+        : drama.description;
     return FocusRing(
       radius: 12,
       child: InkWell(

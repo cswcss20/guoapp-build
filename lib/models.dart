@@ -197,6 +197,7 @@ class Drama {
     this.tags = const [],
     this.releaseStatus = '',
     this.badge = '',
+    this.remark = '',
     this.openAsSearch = false,
     this.peers = const [],
   }) : vipStatus = vip;
@@ -217,6 +218,9 @@ class Drama {
   final List<String> tags;
   final String releaseStatus;
   final String badge;
+  // 模組在目錄項目上申報的附加文字（例如女優項目的影片數/出道年份）；
+  // 只供有需要的介面顯示（如追劇頁女優格），不影響其他列表行為。
+  final String remark;
   // 模組申報的導航標記：撳入此項目時改開搜尋頁（標題為搜尋詞），
   // 不入詳情頁。用於女優列表等「撳入即搜尋」項目。
   final bool openAsSearch;
@@ -253,6 +257,7 @@ class Drama {
     tags: (json['tags'] as List? ?? const []).whereType<String>().toList(),
     releaseStatus: json['releaseStatus'] as String? ?? '',
     badge: json['badge'] as String? ?? '',
+    remark: json['remark'] as String? ?? '',
     openAsSearch: json['openAsSearch'] == true,
     peers: [
       for (final row in json['peers'] as List? ?? const [])
@@ -277,6 +282,7 @@ class Drama {
     'tags': tags,
     'releaseStatus': releaseStatus,
     'badge': badge,
+    if (remark.isNotEmpty) 'remark': remark,
     if (openAsSearch) 'openAsSearch': true,
   };
 
@@ -321,6 +327,7 @@ class Drama {
           ? releaseStatus
           : fresh.releaseStatus,
       badge: fresh.badge.isEmpty ? badge : fresh.badge,
+      remark: fresh.remark.isEmpty ? remark : fresh.remark,
       openAsSearch: fresh.openAsSearch || openAsSearch,
     );
   }

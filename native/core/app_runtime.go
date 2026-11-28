@@ -62,6 +62,10 @@ type LibraryDrama struct {
 	Tags           []string `json:"tags,omitempty"`
 	ReleaseStatus  string   `json:"releaseStatus,omitempty"`
 	Badge          string   `json:"badge,omitempty"`
+	// Remark 是模組在目錄項目上申報的附加文字（例如女優項目的
+	// 「N 條影片 · YYYY 出道」）；前端只在需要時顯示，不影響
+	// 既有封面/列表行為。
+	Remark string `json:"remark,omitempty"`
 	// OpenAsSearch 由模組申報：前端撳入此項目時改開搜尋頁（標題為
 	// 搜尋詞），不入詳情頁。用於女優列表等「撳入即搜尋」項目。
 	OpenAsSearch bool `json:"openAsSearch,omitempty"`
@@ -233,7 +237,7 @@ func NativeNormalize(drama Drama) LibraryDrama {
 		Category: nativeDramaCategory(drama), VIP: drama.VIP,
 		Heat: drama.Heat, Views: drama.Views, OnlineDate: ProviderReleaseDate(drama.OnlineDate), Score: NativeDramaScore(drama.Score),
 		Tags: append([]string(nil), drama.Tags...), ReleaseStatus: drama.ReleaseStatus, Badge: drama.Badge,
-		OpenAsSearch: drama.OpenAsSearch}
+		Remark: drama.Remark, OpenAsSearch: drama.OpenAsSearch}
 }
 
 func NativeDramaScore(score string) string {
