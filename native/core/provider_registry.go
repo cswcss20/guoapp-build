@@ -39,9 +39,49 @@ type SourceDescriptor struct {
 	// AuthURL 是模組在 manifest 申報的瀏覽器登入/驗證頁地址（跟
 	// CoverAlign 同一管線）；前端有此欄位且模組有 account 能力時，
 	// 在模組頁顯示瀏覽器登入入口。未申報時為空字串。
-	AuthURL            string
+	AuthURL string
+	// LibraryKinds 是模組在 manifest 申報的帳號收藏種類清單（跟
+	// CoverAlign 同一管線）：前端按申報順序在追劇頁「{來源} 收藏」
+	// tab 生成子頁。id="favorites" 是協議約定的同步/寫入 kind
+	// （拉取存 site list＋詳情頁收藏掣 write-through 對象），其餘
+	// kind 即時攞、不存檔。未申報時為 nil，前端預設只有 favorites。
+	LibraryKinds []LibraryKind
 	ValidCategory      func(category string) bool
 	Rankings           []RankingBoard
+}
+
+// LibraryKind 是模組申報的一個帳號收藏種類：ID 是 libraryItems 的
+// kind 參數，Name 是前端子頁標籤（缺省用 ID），Style 是渲染方式
+// （"cover" 標準封面卡格／"avatar" 圓形頭像格，未知值當 "cover"）。
+type LibraryKind struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Style string `json:"style"`
+}
+
+// normalizeLibraryKinds 清理模組申報的收藏種類：去空白、丟空 id、
+// 按 id 去重（保留首次申報次序）、Name 缺省用 ID、Style 只認
+// "avatar"，其餘一律 "cover"。
+func normalizeLibraryKinds(in []LibraryKind) []LibraryKind {
+	seen := map[string]bool{}
+	var out []LibraryKind
+	for _, kind := range in {
+		id := strings.TrimSpace(kind.ID)
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		name := strings.TrimSpace(kind.Name)
+		if name == "" {
+			name = id
+		}
+		style := "cover"
+		if strings.TrimSpace(kind.Style) == "avatar" {
+			style = "avatar"
+		}
+		out = append(out, LibraryKind{ID: id, Name: name, Style: style})
+	}
+	return out
 }
 
 type Provider interface {

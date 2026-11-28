@@ -181,7 +181,10 @@ class _LibrarySavePillState extends State<LibrarySavePill> {
   @override
   Widget build(BuildContext context) {
     final drama = widget.drama;
-    if (!SourceSite.byId(drama.source).library) {
+    final site = SourceSite.byId(drama.source);
+    // 協議約定：收藏掣只對申報了 favorites kind（同步/寫入 kind）
+    // 的 library 來源出現。
+    if (!site.library || !site.hasFavoritesKind) {
       return const SizedBox.shrink();
     }
     return FutureBuilder<bool>(

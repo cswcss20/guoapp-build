@@ -6,6 +6,43 @@ const hongguoSourceId = 'hongguo';
 
 bool validSourceId(String id) => RegExp(r'^[a-z0-9_-]{1,64}$').hasMatch(id);
 
+/// 模組在 manifest 申報的一個帳號收藏種類（libraryKinds）：
+/// id 是 libraryItems 的 kind 參數，name 是追劇頁子頁標籤，
+/// style 是渲染方式（'cover' 標準封面卡格／'avatar' 圓形頭像格）。
+/// id='favorites' 是協議約定的同步/寫入 kind（拉取存 site list＋
+/// 詳情頁收藏掣 write-through 對象），其餘 kind 即時攞、不存檔。
+class LibraryKind {
+  const LibraryKind({required this.id, required this.name, this.style = 'cover'});
+
+  factory LibraryKind.fromJson(Map<String, dynamic> json) {
+    final id = (json['id'] as String? ?? '').trim();
+    final name = (json['name'] as String? ?? '').trim();
+    return LibraryKind(
+      id: id,
+      name: name.isEmpty ? id : name,
+      style: (json['style'] as String? ?? '').trim() == 'avatar'
+          ? 'avatar'
+          : 'cover',
+    );
+  }
+
+  final String id;
+  final String name;
+  final String style;
+
+  bool get isFavorites => id == 'favorites';
+  bool get isAvatar => style == 'avatar';
+
+  static List<LibraryKind> listFromJson(Object? value) {
+    final seen = <String>{};
+    return [
+      for (final row in value as List? ?? const [])
+        if (row is Map)
+          LibraryKind.fromJson(Map<String, dynamic>.from(row)),
+    ].where((kind) => kind.id.isNotEmpty && seen.add(kind.id)).toList();
+  }
+}
+
 class SourceSite {
   const SourceSite(
     this.id,
@@ -27,6 +64,7 @@ class SourceSite {
     this.vipPrompt = true,
     this.coverAlign = '',
     this.authUrl = '',
+    this.libraryKinds = const [],
   });
   factory SourceSite.fromJson(Map<String, dynamic> json) => SourceSite(
     json['id'] as String? ?? '',
@@ -48,6 +86,7 @@ class SourceSite {
     vipPrompt: json['vipPrompt'] != false,
     coverAlign: json['coverAlign'] as String? ?? '',
     authUrl: json['authUrl'] as String? ?? '',
+    libraryKinds: LibraryKind.listFromJson(json['libraryKinds']),
   );
   final String id;
   final String name;
@@ -74,6 +113,23 @@ class SourceSite {
   // 模組 manifest 申報的瀏覽器登入/驗證頁地址；有此欄位且有 account
   // 能力時，模組頁顯示瀏覽器登入入口。未申報時為空字串。
   final String authUrl;
+  // 模組 manifest 申報的帳號收藏種類清單（libraryKinds）；追劇頁
+  // 「{來源} 收藏」tab 按申報順序生成子頁。未申報時為空，見
+  // effectiveLibraryKinds 的向後相容預設。
+  final List<LibraryKind> libraryKinds;
+
+  /// 實際生效的收藏種類：有申報用申報；有 library 能力但冇申報
+  /// 時預設只有 favorites（向後相容舊模組）；冇 library 能力回空。
+  List<LibraryKind> get effectiveLibraryKinds => libraryKinds.isNotEmpty
+      ? libraryKinds
+      : library
+      ? const [LibraryKind(id: 'favorites', name: '收藏')]
+      : const [];
+
+  /// 是否申報了協議約定的同步/寫入 kind（favorites）：冇申報時
+  /// 唔出收藏掣、同步對該來源無動作。
+  bool get hasFavoritesKind =>
+      effectiveLibraryKinds.any((kind) => kind.isFavorites);
   bool get onlineSearch => pagedSearch;
   String get groupId => group.isEmpty ? id : group;
   String get groupName => groupLabel.isEmpty ? name : groupLabel;

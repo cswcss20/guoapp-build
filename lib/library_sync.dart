@@ -46,6 +46,11 @@ class LibrarySync {
     if (!site.library || !store.allowsSource(source) || store.locked) {
       return const LibrarySyncResult(error: '站源未支援收藏同步');
     }
+    // 協議約定：只有申報了 favorites kind 的來源先有同步對象；
+    // 冇申報時同步對該來源無動作。
+    if (!site.hasFavoritesKind) {
+      return const LibrarySyncResult(error: '站源未申報 favorites 收藏種類');
+    }
     _running = true;
     final epoch = store.profileEpoch;
     try {

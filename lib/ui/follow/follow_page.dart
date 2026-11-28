@@ -28,8 +28,6 @@ import '../widgets/status_view.dart';
 
 enum _FollowTab { dramas, tags, library }
 
-enum _LibraryKind { videos, actresses }
-
 typedef _View = ({
   List<Drama> follows,
   List<FavoriteTag> tags,
@@ -66,13 +64,27 @@ class _FollowPageState extends State<FollowPage> {
   Set<String>? _selection;
   var _syncing = false;
   var _librarySource = '';
-  var _libraryKind = _LibraryKind.videos;
-  final _actressCache = <String, List<Drama>>{};
-  final _actressErrors = <String, String>{};
-  final _actressLoading = <String>{};
+  var _libraryKindId = '';
+  // 即時攞 kinds（favorites 以外）的 cache，key 為 source + kind id。
+  final _liveCache = <String, List<Drama>>{};
+  final _liveErrors = <String, String>{};
+  final _liveLoading = <String>{};
 
-  bool get _inActresses =>
-      _tab == _FollowTab.library && _libraryKind == _LibraryKind.actresses;
+  /// 目前 library tab 選中的收藏種類（跟模組 libraryKinds 申報）；
+  /// 未選或申報已變時用第一個申報種類。
+  LibraryKind? get _currentKind {
+    final kinds = SourceSite.byId(_librarySource).effectiveLibraryKinds;
+    for (final kind in kinds) {
+      if (kind.id == _libraryKindId) return kind;
+    }
+    return kinds.isEmpty ? null : kinds.first;
+  }
+
+  /// 是否在即時攞子頁（favorites 以外的 kind：即時攞、不存檔）。
+  bool get _inLiveKind =>
+      _tab == _FollowTab.library &&
+      _currentKind != null &&
+      !_currentKind!.isFavorites;
 
   List<SourceSite> get _librarySites => [
     for (final site in SourceSite.values)
@@ -113,34 +125,43 @@ class _FollowPageState extends State<FollowPage> {
     setState(() {
       _tab = _FollowTab.library;
       _librarySource = sourceId;
-      _libraryKind = _LibraryKind.videos;
+      _libraryKindId =
+          SourceSite.byId(sourceId).effectiveLibraryKinds.firstOrNull?.id ??
+          '';
       _source = '';
       _filter = '';
       _selection = null;
     });
+    final kind = _currentKind;
+    if (kind != null && !kind.isFavorites) _ensureLive(sourceId, kind);
   }
 
-  void _switchLibraryKind(_LibraryKind kind) {
-    if (_libraryKind == kind) return;
+  void _switchLibraryKind(String kindId) {
+    if (_libraryKindId == kindId) return;
     setState(() {
-      _libraryKind = kind;
+      _libraryKindId = kindId;
       _selection = null;
     });
-    if (kind == _LibraryKind.actresses) _ensureActresses(_librarySource);
+    final kind = _currentKind;
+    if (kind != null && !kind.isFavorites) _ensureLive(_librarySource, kind);
   }
 
-  void _ensureActresses(String source) {
+  static String _liveKey(String source, String kindId) => '$source\u0000$kindId';
+
+  void _ensureLive(String source, LibraryKind kind) {
+    final key = _liveKey(source, kind.id);
     if (source.isEmpty ||
-        _actressCache.containsKey(source) ||
-        _actressErrors.containsKey(source) ||
-        _actressLoading.contains(source)) {
+        _liveCache.containsKey(key) ||
+        _liveErrors.containsKey(key) ||
+        _liveLoading.contains(key)) {
       return;
     }
-    _actressLoading.add(source);
-    _loadActresses(source);
+    _liveLoading.add(key);
+    _loadLive(source, kind);
   }
 
-  Future<void> _loadActresses(String source) async {
+  Future<void> _loadLive(String source, LibraryKind kind) async {
+    final key = _liveKey(source, kind.id);
     final repository = AppScope.of(context).repository;
     try {
       final items = <Drama>[];
@@ -148,7 +169,7 @@ class _FollowPageState extends State<FollowPage> {
       for (var page = 1; page <= 20; page++) {
         final result = await repository.libraryItems(
           source,
-          kind: 'actresses',
+          kind: kind.id,
           page: page,
         );
         for (final drama in result.items) {
@@ -158,20 +179,20 @@ class _FollowPageState extends State<FollowPage> {
       }
       if (!mounted) return;
       setState(() {
-        _actressCache[source] = items;
-        _actressErrors.remove(source);
-        _actressLoading.remove(source);
+        _liveCache[key] = items;
+        _liveErrors.remove(key);
+        _liveLoading.remove(key);
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _actressErrors[source] = _actressErrorMessage(source, error);
-        _actressLoading.remove(source);
+        _liveErrors[key] = _liveErrorMessage(source, kind, error);
+        _liveLoading.remove(key);
       });
     }
   }
 
-  String _actressErrorMessage(String source, Object error) {
+  String _liveErrorMessage(String source, LibraryKind kind, Object error) {
     final name = SourceSite.byId(source).name;
     final code = error is AppFailure ? error.code : '';
     final message = '$error';
@@ -182,21 +203,24 @@ class _FollowPageState extends State<FollowPage> {
         message.contains('notImplemented') ||
         message.contains('收藏種類') ||
         message.contains('收藏种类');
-    if (unsupported) return '此模組版本未支援女優列表，請更新模組後再試。';
+    if (unsupported) {
+      return '此模組版本未支援「${kind.name}」列表，請更新模組後再試。';
+    }
     if (code == 'source_login' ||
         message.contains('登入') ||
         message.contains('登录')) {
       return '$message\n請到「我的 › 模組 › $name」登入後再試。';
     }
-    return '女優列表載入失敗：$message\n如未登入，請到「我的 › 模組 › $name」登入後再試。';
+    return '「${kind.name}」列表載入失敗：$message\n如未登入，請到「我的 › 模組 › $name」登入後再試。';
   }
 
-  void _retryActresses(String source) {
+  void _retryLive(String source, LibraryKind kind) {
+    final key = _liveKey(source, kind.id);
     setState(() {
-      _actressCache.remove(source);
-      _actressErrors.remove(source);
+      _liveCache.remove(key);
+      _liveErrors.remove(key);
     });
-    _ensureActresses(source);
+    _ensureLive(source, kind);
   }
 
   void _switch(int section) {
@@ -561,7 +585,11 @@ class _FollowPageState extends State<FollowPage> {
   /// 有站源申報 library 能力時顯示手動同步掣（拉取站方帳號收藏入
   /// site list；追劇永遠唔推送去帳號）。
   Widget? _syncButton() {
-    if (!SourceSite.values.any((site) => site.library)) return null;
+    if (!SourceSite.values.any(
+      (site) => site.library && site.hasFavoritesKind,
+    )) {
+      return null;
+    }
     return _textButton(
       _syncing ? '同步中' : '同步收藏',
       _syncing ? null : _runSync,
@@ -577,7 +605,9 @@ class _FollowPageState extends State<FollowPage> {
     var removed = 0;
     String? failure;
     try {
-      for (final site in SourceSite.values.where((site) => site.library)) {
+      for (final site in SourceSite.values.where(
+        (site) => site.library && site.hasFavoritesKind,
+      )) {
         final result = await LibrarySync(repository, widget.store).run(site.id);
         if (result.ok) {
           added += result.added;
@@ -701,32 +731,39 @@ class _FollowPageState extends State<FollowPage> {
 
   String _libraryTitle(_View view) {
     final name = SourceSite.byId(_librarySource).name;
-    return _libraryKind == _LibraryKind.actresses
-        ? '$name 收藏'
-        : '$name 收藏 · ${view.shown.length}';
+    return (_currentKind?.isFavorites ?? true)
+        ? '$name 收藏 · ${view.shown.length}'
+        : '$name 收藏';
   }
 
-  Widget _libraryKindSwitch({required double inset}) => Padding(
-    padding: EdgeInsets.fromLTRB(inset, 0, inset, 8),
-    child: SegmentedButton<_LibraryKind>(
-      segments: [
-        ButtonSegment(
-          value: _LibraryKind.videos,
-          icon: const Icon(Icons.movie_outlined, size: 18),
-          label: Text(zh('影片')),
-        ),
-        ButtonSegment(
-          value: _LibraryKind.actresses,
-          icon: const Icon(Icons.person_outline_rounded, size: 18),
-          label: Text(zh('女優')),
-        ),
-      ],
-      selected: {_libraryKind},
-      showSelectedIcon: false,
-      onSelectionChanged: (selection) =>
-          _switchLibraryKind(selection.first),
-    ),
-  );
+  /// 子頁切換：按模組申報的 libraryKinds 順序生成，標籤用申報的
+  /// name；只有一個 kind 時唔出 segmented。
+  Widget _libraryKindSwitch({required double inset}) {
+    final kinds = SourceSite.byId(_librarySource).effectiveLibraryKinds;
+    if (kinds.length < 2) return const SizedBox.shrink();
+    return Padding(
+      padding: EdgeInsets.fromLTRB(inset, 0, inset, 8),
+      child: SegmentedButton<String>(
+        segments: [
+          for (final kind in kinds)
+            ButtonSegment(
+              value: kind.id,
+              icon: Icon(
+                kind.isAvatar
+                    ? Icons.person_outline_rounded
+                    : Icons.movie_outlined,
+                size: 18,
+              ),
+              label: Text(zh(kind.name)),
+            ),
+        ],
+        selected: {_currentKind?.id ?? kinds.first.id},
+        showSelectedIcon: false,
+        onSelectionChanged: (selection) =>
+            _switchLibraryKind(selection.first),
+      ),
+    );
+  }
 
   Widget _sourceChip(String id, String label, _View view) => FocusRing(
     radius: 8,
@@ -830,7 +867,7 @@ class _FollowPageState extends State<FollowPage> {
             ),
             _tabSwitch(view, inset: 16),
             if (_tab == _FollowTab.library) _libraryKindSwitch(inset: 16),
-            if (!_inActresses)
+            if (!_inLiveKind)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: _search(),
@@ -881,7 +918,7 @@ class _FollowPageState extends State<FollowPage> {
                                   28,
                                 ),
                               ),
-                              if (!_inActresses)
+                              if (!_inLiveKind)
                                 SizedBox(
                                   width: (constraints.maxWidth - 400).clamp(
                                     160.0,
@@ -970,7 +1007,7 @@ class _FollowPageState extends State<FollowPage> {
                       spacing: 12,
                       children: view.selection == null
                           ? [
-                              if (!_inActresses)
+                              if (!_inLiveKind)
                                 SizedBox(
                                   width: 260,
                                   child: _search(
@@ -1130,14 +1167,27 @@ class _FollowPageState extends State<FollowPage> {
     double top = 0,
     required List<Widget> header,
   }) {
-    if (_inActresses) {
-      return _actressContent(
-        context,
-        view,
-        inset: inset,
-        top: top,
-        header: header,
-      );
+    if (_tab == _FollowTab.library) {
+      final kind = _currentKind;
+      if (kind != null && !kind.isFavorites) {
+        return _liveKindContent(
+          context,
+          view,
+          kind,
+          inset: inset,
+          top: top,
+          header: header,
+        );
+      }
+      if (kind != null && kind.isAvatar) {
+        return _favoritesAvatarContent(
+          context,
+          view,
+          inset: inset,
+          top: top,
+          header: header,
+        );
+      }
     }
     if (_tab == _FollowTab.tags) {
       return CustomScrollView(
@@ -1361,30 +1411,23 @@ class _FollowPageState extends State<FollowPage> {
     );
   }
 
-  Widget _actressContent(
+  /// 即時攞子頁（favorites 以外的 kind）：逐頁拉齊後按申報的
+  /// style 渲染（avatar 圓形頭像格／cover 標準封面卡格）。
+  Widget _liveKindContent(
     BuildContext context,
-    _View view, {
+    _View view,
+    LibraryKind kind, {
     required double inset,
     double top = 0,
     required List<Widget> header,
   }) {
     final source = _librarySource;
-    final items = _actressCache[source];
-    final error = _actressErrors[source];
+    final key = _liveKey(source, kind.id);
+    final items = _liveCache[key];
+    final error = _liveErrors[key];
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth - inset * 2;
-        const gap = 12.0;
-        final columns = ((width + gap) / (104 + gap)).floor().clamp(3, 10);
-        final tile = (width - gap * (columns - 1)) / columns;
-        final scaler = MediaQuery.textScalerOf(context);
-        final extent =
-            (tile +
-                    8 +
-                    scaler.scale(14) * 1.3 +
-                    2 +
-                    scaler.scale(12) * 1.3)
-                .ceilToDouble();
         return CustomScrollView(
           slivers: [
             SliverPadding(
@@ -1392,49 +1435,36 @@ class _FollowPageState extends State<FollowPage> {
               sliver: SliverList.list(children: header),
             ),
             if (items == null && error == null)
-              const SliverFillRemaining(
+              SliverFillRemaining(
                 hasScrollBody: false,
-                child: StatusView.loading(title: '正在加载女優列表'),
+                child: StatusView.loading(title: '正在加载${kind.name}列表'),
               )
             else if (error != null)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: StatusView(
-                  title: '女優列表載入失敗',
+                  title: '「${kind.name}」列表載入失敗',
                   message: error,
                   icon: Icons.cloud_off_rounded,
                   action: '重試',
-                  onAction: () => _retryActresses(source),
+                  onAction: () => _retryLive(source, kind),
                 ),
               )
             else if (items!.isEmpty)
-              const SliverFillRemaining(
+              SliverFillRemaining(
                 hasScrollBody: false,
                 child: StatusView(
-                  title: '還沒有收藏的女優',
-                  message: '在站源網站收藏女優後，回到這裡即可看到。',
-                  icon: Icons.person_outline_rounded,
+                  title: '還沒有收藏的${kind.name}',
+                  message: '在站源網站收藏後，回到這裡即可看到。',
+                  icon: kind.isAvatar
+                      ? Icons.person_outline_rounded
+                      : Icons.bookmark_border_rounded,
                 ),
               )
             else ...[
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(inset, 12, inset, 0),
-                sliver: SliverGrid.builder(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: columns,
-                    crossAxisSpacing: gap,
-                    mainAxisSpacing: 16,
-                    mainAxisExtent: extent,
-                  ),
-                  itemCount: items!.length,
-                  itemBuilder: (context, index) => _actressCell(
-                    context,
-                    items[index],
-                    tile,
-                    focusNode: index == 0 ? widget.entryFocus : null,
-                  ),
-                ),
-              ),
+              kind.isAvatar
+                  ? _avatarGridSliver(context, items, inset, width)
+                  : _coverGridSliver(context, items, inset, width),
               SliverPadding(
                 padding: EdgeInsets.only(
                   bottom: AppScope.of(context).television ? 27 : 32,
@@ -1447,7 +1477,111 @@ class _FollowPageState extends State<FollowPage> {
     );
   }
 
-  Widget _actressCell(
+  /// favorites kind 申報 avatar style 時：site list 用圓形頭像格
+  /// 顯示（空清單提示跟 favorites cover 路徑一致）。
+  Widget _favoritesAvatarContent(
+    BuildContext context,
+    _View view, {
+    required double inset,
+    double top = 0,
+    required List<Widget> header,
+  }) => LayoutBuilder(
+    builder: (context, constraints) {
+      final width = constraints.maxWidth - inset * 2;
+      return CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.only(top: top),
+            sliver: SliverList.list(children: header),
+          ),
+          if (view.shown.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: FadeSwitcher(
+                scale: true,
+                child: _shownEmptyView(context, view),
+              ),
+            )
+          else ...[
+            _avatarGridSliver(context, view.shown, inset, width),
+            SliverPadding(
+              padding: EdgeInsets.only(
+                bottom: AppScope.of(context).television ? 27 : 32,
+              ),
+            ),
+          ],
+        ],
+      );
+    },
+  );
+
+  Widget _avatarGridSliver(
+    BuildContext context,
+    List<Drama> items,
+    double inset,
+    double width,
+  ) {
+    const gap = 12.0;
+    final columns = ((width + gap) / (104 + gap)).floor().clamp(3, 10);
+    final tile = (width - gap * (columns - 1)) / columns;
+    final scaler = MediaQuery.textScalerOf(context);
+    final extent =
+        (tile + 8 + scaler.scale(14) * 1.3 + 2 + scaler.scale(12) * 1.3)
+            .ceilToDouble();
+    return SliverPadding(
+      padding: EdgeInsets.fromLTRB(inset, 12, inset, 0),
+      sliver: SliverGrid.builder(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          crossAxisSpacing: gap,
+          mainAxisSpacing: 16,
+          mainAxisExtent: extent,
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) => _avatarCell(
+          context,
+          items[index],
+          tile,
+          focusNode: index == 0 ? widget.entryFocus : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _coverGridSliver(
+    BuildContext context,
+    List<Drama> items,
+    double inset,
+    double width,
+  ) {
+    final (columns, gap, runGap) = _grid(context, width);
+    final tile = (width - gap * (columns - 1)) / columns;
+    return SliverPadding(
+      padding: EdgeInsets.fromLTRB(inset, 12, inset, 0),
+      sliver: SliverGrid.builder(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          crossAxisSpacing: gap,
+          mainAxisSpacing: runGap,
+          mainAxisExtent: ProgressPoster.extentFor(
+            context,
+            tile,
+            coverAspect: widget.store.coverCardAspect,
+          ),
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) => _poster(
+          context,
+          items[index],
+          tile,
+          null,
+          focusNode: index == 0 ? widget.entryFocus : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _avatarCell(
     BuildContext context,
     Drama drama,
     double width, {

@@ -1,3 +1,5 @@
+import 'models.dart';
+
 class SourceModule {
   const SourceModule({
     required this.id,
@@ -9,6 +11,7 @@ class SourceModule {
     this.adult = false,
     this.coverAlign = '',
     this.authUrl = '',
+    this.libraryKinds = const [],
     this.installed = false,
     this.previous = '',
     this.token = '',
@@ -26,6 +29,7 @@ class SourceModule {
     adult: json['adult'] == true,
     coverAlign: json['coverAlign'] as String? ?? '',
     authUrl: json['authUrl'] as String? ?? '',
+    libraryKinds: LibraryKind.listFromJson(json['libraryKinds']),
     installed: json['installed'] == true,
     previous: json['previous'] as String? ?? '',
     token: json['token'] as String? ?? '',
@@ -40,6 +44,7 @@ class SourceModule {
   final bool adult;
   final String coverAlign;
   final String authUrl;
+  final List<LibraryKind> libraryKinds;
   final bool installed;
   final String previous;
   final String token;
