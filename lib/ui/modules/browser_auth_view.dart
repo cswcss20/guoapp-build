@@ -170,9 +170,12 @@ class _BrowserAuthViewState extends State<BrowserAuthView> {
       });
       // 同时登记 WebView 桥接：之后该域名的主机请求改走真浏览器抓页，
       // 直连被 Cloudflare 挡时也能拿到页面。登记失败不影响上面的保存。
+      // 帐号登录来源（authUrl）不登记：它们直连本身可用（住宅 IP），
+      // 登记会让所有取页改走串行的无头 WebView 桥接 fetch，慢很多；
+      // 真撞 Cloudflare 时自愈验证流程会再登记。
       var bridged = false;
       try {
-        if (WebViewBridge.supported) {
+        if (WebViewBridge.supported && !_isAccountLogin) {
           await WebViewBridge.registerVerified(
             _repository,
             url: _authUrl,
