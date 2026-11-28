@@ -332,6 +332,7 @@ class _ModulesPageState extends State<ModulesPage>
               enabled: _store.sourceEnabled(module.id),
               onToggle: _toggleFor(module),
               admin: _store.profile.admin,
+              onLibrarySync: () => _syncLibrary(module.id),
               onUpdate: update != null && enabled
                   ? () {
                       Navigator.pop(menu);
@@ -423,6 +424,7 @@ class _ModulesPageState extends State<ModulesPage>
       enabled: _store.sourceEnabled(module.id),
       onToggle: _toggleFor(module),
       admin: _store.profile.admin,
+      onLibrarySync: () => _syncLibrary(module.id),
       onDetails: AppScope.of(context).television
           ? () => _menu(module, _updateFor(module, latest[module.id]))
           : () => _details(module),
@@ -884,6 +886,7 @@ class _InstalledCard extends StatelessWidget {
     required this.onDetails,
     required this.onUpdate,
     required this.onUninstall,
+    this.onLibrarySync,
   });
   final SourceModule module;
   final ModuleIndexEntry? update;
@@ -893,6 +896,7 @@ class _InstalledCard extends StatelessWidget {
   final VoidCallback onDetails;
   final VoidCallback? onUpdate;
   final VoidCallback? onUninstall;
+  final VoidCallback? onLibrarySync;
 
   @override
   Widget build(BuildContext context) {
@@ -935,7 +939,7 @@ class _InstalledCard extends StatelessWidget {
           BrowserAuthButton(
             source: module.id,
             style: _cardButton(colors),
-            onSaved: () => _syncLibrary(module.id),
+            onSaved: onLibrarySync,
           ),
       ],
       actions: television
@@ -1320,6 +1324,7 @@ class _ModuleMenu extends StatelessWidget {
     required this.admin,
     required this.onUpdate,
     required this.onUninstall,
+    this.onLibrarySync,
   });
   final SourceModule module;
   final ModuleIndexEntry? update;
@@ -1328,6 +1333,7 @@ class _ModuleMenu extends StatelessWidget {
   final bool admin;
   final VoidCallback? onUpdate;
   final VoidCallback? onUninstall;
+  final VoidCallback? onLibrarySync;
 
   @override
   Widget build(BuildContext context) {
@@ -1355,10 +1361,7 @@ class _ModuleMenu extends StatelessWidget {
           EmbyAccountButton(admin: admin),
         if ((module.authUrl.isNotEmpty || module.id == 'supjav-cookie') &&
             module.capabilities.contains('account'))
-          BrowserAuthButton(
-            source: module.id,
-            onSaved: () => _syncLibrary(module.id),
-          ),
+          BrowserAuthButton(source: module.id, onSaved: onLibrarySync),
         if (update != null)
           FocusRing(
             radius: 20,
